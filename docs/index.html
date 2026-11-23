@@ -1,15 +1,79 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Games</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1220">
+<title>Arcade</title>
+<meta name="description" content="Small browser games.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237fb8d8'/%3E%3Cstop offset='1' stop-color='%23f0a57e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='50,6 88,28 88,72 50,94 12,72 12,28' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body{margin:0;min-height:100vh;background:#0f1420;color:#e8e6f0;font:18px/1.5 system-ui,sans-serif;display:flex;align-items:center;justify-content:center}
-  main{padding:16px;max-width:480px;width:100%}
-  a{display:block;margin:12px 0;padding:18px 20px;border-radius:12px;background:#1b2333;color:#9cc6e8;text-decoration:none;font-size:20px}
-  a:hover{background:#243049}
-</style></head><body><main>
-<h1>Games</h1>
-<a href="InfluenceFloodGlobe.html">Influence Flood: Globe</a>
-<a href="InfluenceFloodRace.html">Influence Flood: Race</a>
-<a href="MazeRunner.html">Maze Runner FPV</a>
-</main></body></html>
+  :root{
+    --bg:#0d1220; --card:#161d30; --card-hi:#1d2640; --line:rgba(160,190,230,.10);
+    --text:#e9ecf5; --muted:#9aa6c2;
+    --ocean:#7fb8d8; --teal:#6fc2b8; --sunset:#f0a57e; --rose:#e48a9a; --sand:#f1cf8f;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{min-height:100vh;background:var(--bg);color:var(--text);
+    font:18px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:-20vmax;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(40vmax 30vmax at 15% 10%, rgba(127,184,216,.16), transparent 70%),
+      radial-gradient(40vmax 30vmax at 90% 25%, rgba(240,165,126,.13), transparent 70%),
+      radial-gradient(50vmax 35vmax at 50% 110%, rgba(228,138,154,.10), transparent 70%);}
+  main{max-width:1080px;margin:0 auto;padding:56px 16px 40px}
+  header{margin-bottom:36px}
+  h1{display:inline-block;padding-right:.08em;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(40px,8vw,64px);line-height:1.05;letter-spacing:-.01em;
+    background:linear-gradient(100deg,var(--ocean),var(--teal) 35%,var(--sand) 65%,var(--sunset));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .grid{display:grid;gap:22px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+  .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);
+    border-radius:20px;overflow:hidden;color:inherit;text-decoration:none;
+    transition:transform .25s cubic-bezier(.2,.8,.2,1),background .25s,box-shadow .25s}
+  .card:hover,.card:focus-visible{transform:translateY(-4px);background:var(--card-hi);
+    box-shadow:0 18px 40px -18px var(--glow),0 0 0 1px var(--glow);outline:none}
+  .thumb{aspect-ratio:4/3;overflow:hidden;background:#0a0f1b}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+  .card:hover .thumb img{transform:scale(1.04)}
+  .body{padding:18px 20px 20px;display:flex;align-items:center;gap:14px}
+  .body div{flex:1}
+  h2{font-size:22px;font-weight:600;line-height:1.25}
+  .tag{color:var(--muted);font-size:16px;margin-top:2px}
+  .play{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+    background:var(--glow);color:#0d1220;transition:transform .25s}
+  .card:hover .play{transform:scale(1.08)}
+  .play svg{width:18px;height:18px;margin-left:3px}
+  footer{margin-top:44px;color:rgba(154,166,194,.45);font-size:13px;text-align:center}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Arcade</h1>
+  </header>
+
+  <section class="grid">
+    <a class="card" href="InfluenceFloodGlobe.html" style="--glow:var(--ocean)">
+      <div class="thumb"><img src="img/globe.jpg" alt="A sphere of coloured hexagons" loading="lazy"></div>
+      <div class="body"><div><h2>Influence Flood: Globe</h2><p class="tag">Flood the world</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
+    <a class="card" href="InfluenceFloodRace.html" style="--glow:var(--sunset)">
+      <div class="thumb"><img src="img/race.jpg" alt="A hexagon board of coloured tiles" loading="lazy"></div>
+      <div class="body"><div><h2>Influence Flood: Race</h2><p class="tag">Paint, then flood</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
+    <a class="card" href="MazeRunner.html" style="--glow:var(--rose)">
+      <div class="thumb"><img src="img/maze.jpg" alt="First-person view down a neon maze corridor" loading="lazy"></div>
+      <div class="body"><div><h2>Maze Runner FPV</h2><p class="tag">Eat every pellet</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
+  </section>
+
+  <footer>v2</footer>
+</main>
+</body>
+</html>
