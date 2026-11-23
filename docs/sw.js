@@ -1,10 +1,11 @@
 // Service worker: keeps a copy of the arcade on the device so it opens offline.
 // Bump VERSION whenever any page changes, so devices fetch the new files.
-const VERSION = "arcade-v1";
+const VERSION = "arcade-v3";
 const CORE = [
   "./", "index.html", "manifest.json", "pwa.js",
   "InfluenceFloodGlobe.html", "InfluenceFloodRace.html", "MazeRunner.html",
-  "img/globe.jpg", "img/race.jpg", "img/maze.jpg",
+  "BoomBust.html", "TruthOrDrink.html",
+  "img/globe.jpg", "img/race.jpg", "img/maze.jpg", "img/boombust.jpg", "img/truth.jpg",
   "icons/icon-192.png", "icons/apple-touch-icon.png",
   "https://cdn.tailwindcss.com/3.4.16",
   "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",

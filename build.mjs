@@ -5,6 +5,7 @@ import { writeFileSync } from "node:fs";
 const games = [
   { file: "InfluenceFloodGlobe", title: "Influence Flood: Globe" },
   { file: "InfluenceFloodRace", title: "Influence Flood: Race" },
+  { file: "TruthOrDrink", title: "Truth or Dare or Drink or Toke", bg: "#0a0a1a" },
 ];
 
 for (const g of games) {
@@ -25,7 +26,7 @@ for (const g of games) {
   writeFileSync(`docs/${g.file}.html`, `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1420">
+<meta name="theme-color" content="${g.bg || "#0f1420"}">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -34,7 +35,7 @@ for (const g of games) {
 <script src="pwa.js" defer></script>
 <title>${g.title}</title>
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-<style>html,body{margin:0;background:#0f1420}</style>
+<style>html,body{margin:0;background:${g.bg || "#0f1420"}}</style>
 </head><body><div id="root"></div><script>${js}</script></body></html>
 `);
   console.log("built docs/" + g.file + ".html");

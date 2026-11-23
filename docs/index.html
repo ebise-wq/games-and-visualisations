@@ -52,6 +52,19 @@
   .card:hover .play{transform:scale(1.08)}
   .play svg{width:18px;height:18px;margin-left:3px}
   footer{margin-top:44px;color:rgba(154,166,194,.45);font-size:13px;text-align:center}
+  @media (max-width:640px){
+    main{padding-top:36px}
+    header{margin-bottom:24px}
+    .grid{gap:14px}
+    .card{flex-direction:row;border-radius:16px;height:150px}
+    .thumb{flex:none;width:46%;height:100%;aspect-ratio:auto}
+    .body{padding:12px 14px;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px}
+    .body div{flex:none}
+    h2{font-size:19px}
+    .tag{font-size:15px}
+    .play{width:38px;height:38px}
+    .play svg{width:15px;height:15px}
+  }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -77,9 +90,19 @@
       <div class="body"><div><h2>Maze Runner FPV</h2><p class="tag">Eat every pellet</p></div>
         <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
     </a>
+    <a class="card" href="BoomBust.html" style="--glow:var(--sand)">
+      <div class="thumb"><img src="img/boombust.jpg" alt="Ants on a glowing pheromone trail between nest and food" loading="lazy"></div>
+      <div class="body"><div><h2>Boom &amp; Bust</h2><p class="tag">Keep the colony alive</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
+    <a class="card" href="TruthOrDrink.html" style="--glow:var(--teal)">
+      <div class="thumb"><img src="img/truth.jpg" alt="Setup screen with mild, moderate and spicy buttons" loading="lazy"></div>
+      <div class="body"><div><h2>Truth or Dare or Drink</h2><p class="tag">Answer, dare, or drink</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
   </section>
 
-  <footer>v4</footer>
+  <footer>v6</footer>
 </main>
 </body>
 </html>
