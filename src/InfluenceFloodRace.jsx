@@ -1049,6 +1049,10 @@ function QuietHoursScreen() {
   );
 }
 
+// The games-per-day limit lives in docs/limit.js and is shared across the whole arcade.
+// Returns false (and shows the "done" card) once today's limit is used up.
+const arcadeStart = () => (window.Arcade ? window.Arcade.tryStart() : true);
+
 export default function InfluenceFloodRace() {
   const [config, setConfig] = useState({ radius: 5, difficulty: "medium", mode: "ai", mapType: "classic", paintsPerTurn: 1 });
   const [state, dispatch] = useReducer(gameReducer, config.radius, (radius) => createGame(radius, config.mapType, config.paintsPerTurn));
@@ -1437,7 +1441,7 @@ export default function InfluenceFloodRace() {
                 Room {roomCode}
               </span>
             ) : (
-              <button onClick={() => dispatch(newGameAction())}
+              <button onClick={() => { if (arcadeStart()) dispatch(newGameAction()); }}
                 className="flex items-center gap-1.5 text-sm font-medium bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-lg px-3 py-2 transition-colors">
                 <RefreshCw size={15} /> New game
               </button>
@@ -1457,7 +1461,7 @@ export default function InfluenceFloodRace() {
                            onPlayAgain={() => {
                              if (config.mode === "online") {
                                setRoomCode(null); setMySeat(null); setStarted(false); setShowSetup(true);
-                             } else {
+                             } else if (arcadeStart()) {
                                dispatch(newGameAction());
                              }
                            }}
@@ -1472,7 +1476,7 @@ export default function InfluenceFloodRace() {
             finished={state.finished}
             onSeek={seekReplay}
             onExit={() => setReplayIndex(null)}
-            onPlayAgain={() => { setReplayIndex(null); dispatch(newGameAction()); }} />
+            onPlayAgain={() => { if (!arcadeStart()) return; setReplayIndex(null); dispatch(newGameAction()); }} />
         ) : (
         <>
         {/* Turn + step indicator */}
@@ -1709,6 +1713,7 @@ export default function InfluenceFloodRace() {
               setShowSetup(false);
               setShowOnlineLobby(true);
             } else {
+              if (!arcadeStart()) return;
               dispatch(newGameAction());
               setShowSetup(false);
               setStarted(true);

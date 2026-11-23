@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Arcade">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="pwa.js" defer></script>
+<script src="limit.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -1303,10 +1304,12 @@ function setSpeed(k){
 document.querySelectorAll('#speedsel button').forEach(b=>
   b.onclick=()=>{ audioInit(); setSpeed(b.dataset.sp); });
 
-$('startbtn').onclick=()=>{ audioInit(); newGame(); showOverlay(null); };
+// Daily limit shared across the arcade (limit.js). A new run counts; the next level doesn't.
+const arcadeStart=()=>(window.Arcade?window.Arcade.tryStart():true);
+$('startbtn').onclick=()=>{ audioInit(); if(!arcadeStart()) return; newGame(); showOverlay(null); };
 $('rulesbtn').onclick=()=>{ $('startov').classList.add('hidden'); $('rulesov').classList.remove('hidden'); };
 $('rulesback').onclick=()=>{ $('rulesov').classList.add('hidden'); $('startov').classList.remove('hidden'); };
-$('retrybtn').onclick=()=>{ newGame(); showOverlay(null); };
+$('retrybtn').onclick=()=>{ if(!arcadeStart()) return; newGame(); showOverlay(null); };
 $('nextbtn').onclick =()=>{ nextLevel(); showOverlay(null); };
 $('resumebtn').onclick=()=>{ state.phase='play'; showOverlay(null); };
 $('pausebtn').onclick=()=>{ if(state.phase==='play'){state.phase='pause';showOverlay('pauseov');} };

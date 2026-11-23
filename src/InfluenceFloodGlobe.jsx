@@ -869,15 +869,11 @@ function FlatMap({ state, selectable, selectColour, onCellClick }) {
  *  4. APP
  * ============================================================ */
 
-// The most games you can commit to in one sitting. You pick a number up front
-// (1..MAX) and it locks for the session -- there is no in-app way to raise it,
-// deliberately, the same as the quiet-hours gate. Reviewing already-played
-// games (Review moves, Replay, Stats) stays open past the cap, since that's
-// reflection, not more play.
 // Quick play always uses these, whatever was last chosen on the custom screen.
 const QUICK_CONFIG = { freq: 4, numPlayers: 3, humans: 1, spread: "far", gaps: "many", difficulty: "strategist" };
-const SESSION_GAME_MAX = 5;
-const GOAL_LABELS = { 1: "just 1 game bro 🥺" };
+// The games-per-day limit lives in docs/limit.js and is shared across the whole arcade.
+// Returns false (and shows the "done" card) once today's limit is used up.
+const arcadeStart = () => (window.Arcade ? window.Arcade.tryStart() : true);
 
 const QUIET_START = 23, QUIET_END = 8;
 const inQuietHours = (d = new Date()) => { const h = d.getHours(); return h >= QUIET_START || h < QUIET_END; };
@@ -906,8 +902,6 @@ export default function InfluenceFloodGlobe() {
   const histMeta = useRef({ id: null, moves: -1 });
   const [quiet, setQuiet] = useState(() => inQuietHours());
   const [sessionLog, setSessionLog] = useState([]);
-  const [gamesThisSession, setGamesThisSession] = useState(0);
-  const [sessionGoal, setSessionGoal] = useState(null);   // null until you commit
   const [stats, setStats] = useState({});
   const [showStats, setShowStats] = useState(false);
   const logRef = useRef({ meta: null, actions: [] });
@@ -1024,7 +1018,6 @@ export default function InfluenceFloodGlobe() {
     if (!state.finished || !started || !logRef.current.meta) return;
     if (loggedRef.current === state.gameId) return;
     loggedRef.current = state.gameId;
-    setGamesThisSession((n) => n + 1);
     const m = logRef.current.meta;
     const line = ["G5", m.freq, m.players, m.spread, m.gaps, m.difficulty, m.humans, m.first, m.homes, m.voids, m.colours,
                   logRef.current.actions.join(","),
@@ -1080,10 +1073,11 @@ export default function InfluenceFloodGlobe() {
   }, [state]);
 
   const newGame = () => {
-    if (sessionGoal !== null && gamesThisSession >= sessionGoal) { setStarted(false); return; }
+    if (!arcadeStart()) return;
     dispatch({ type: "NEW_GAME", freq: config.freq, numPlayers: config.numPlayers, spread: config.spread, gaps: config.gaps });
   };
   const quickPlay = () => {
+    if (!arcadeStart()) return;
     setConfig(QUICK_CONFIG);
     dispatch({ type: "NEW_GAME", freq: QUICK_CONFIG.freq, numPlayers: QUICK_CONFIG.numPlayers, spread: QUICK_CONFIG.spread, gaps: QUICK_CONFIG.gaps });
     setStarted(true);
@@ -1109,52 +1103,6 @@ export default function InfluenceFloodGlobe() {
             </span>.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (sessionGoal === null) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center p-6"
-           style={{ backgroundColor: "#020617", fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-        <div className="w-full max-w-sm text-center text-slate-300">
-          <h1 className="text-xl font-bold text-slate-100">How many games today?</h1>
-          <p className="text-sm mt-2 text-slate-400">Pick before you start. It locks for this sitting.</p>
-          <div className="flex flex-col gap-2.5 mt-6">
-            {Array.from({ length: SESSION_GAME_MAX }, (_, i) => i + 1).map((n) => (
-              <button key={n} onClick={() => setSessionGoal(n)}
-                className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 py-3.5 text-base font-medium text-slate-100 transition-colors">
-                {GOAL_LABELS[n] || `${n} games`}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!started && gamesThisSession >= sessionGoal) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center p-6"
-           style={{ backgroundColor: "#020617", fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-        <div className="w-full max-w-sm text-center text-slate-300">
-          <div className="text-4xl mb-4">🌤️</div>
-          <h1 className="text-xl font-bold text-slate-100">
-            {sessionGoal === 1 ? "Just 1 — done" : `${sessionGoal} games — done`}
-          </h1>
-          <p className="text-sm mt-3 leading-relaxed">
-            You said {sessionGoal}, and you stuck to it.
-          </p>
-          <button onClick={() => setShowStats(true)}
-            className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium bg-slate-800 hover:bg-slate-700 rounded-lg px-4 py-2">
-            <BarChart3 size={15} /> View stats
-          </button>
-          <p className="text-xs mt-6 text-slate-600 leading-relaxed">
-            No override on starting a new game — that's the point. Closing and reopening starts a fresh sitting, and a fresh pick.
-          </p>
-        </div>
-        {showStats && <Stats stats={stats} log={sessionLog} onClose={() => setShowStats(false)}
-                             onReset={() => setStats({})} />}
       </div>
     );
   }
@@ -1270,7 +1218,7 @@ export default function InfluenceFloodGlobe() {
           </Row>
 
           <div className="flex flex-col gap-2">
-            <button onClick={() => { dispatch({ type: "NEW_GAME", freq: config.freq, numPlayers: config.numPlayers, spread: config.spread, gaps: config.gaps }); setStarted(true); }}
+            <button onClick={() => { if (!arcadeStart()) return; dispatch({ type: "NEW_GAME", freq: config.freq, numPlayers: config.numPlayers, spread: config.spread, gaps: config.gaps }); setStarted(true); }}
               className="w-full rounded-xl bg-amber-500 text-slate-950 font-semibold py-3 hover:bg-amber-400 transition-colors">
               Play
             </button>

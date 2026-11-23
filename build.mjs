@@ -32,6 +32,7 @@ for (const g of games) {
 <meta name="apple-mobile-web-app-title" content="Arcade">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="pwa.js" defer></script>
+<script src="limit.js" defer></script>
 <title>${g.title}</title>
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 <style>html,body{margin:0;background:#0f1420}</style>

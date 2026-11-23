@@ -26,3 +26,10 @@ The arcade is an installable web app (`docs/manifest.json`, `docs/sw.js`, `docs/
 The service worker keeps a copy of every page for offline play.
 **After changing any page, bump `VERSION` in `docs/sw.js`**, or installed copies keep the old files.
 A new game also needs adding to the `CORE` list in `docs/sw.js`, plus the same head tags as the other pages.
+
+## Daily game limit
+
+`docs/limit.js` holds one games-per-day limit for the whole arcade (1–5, or no limit),
+picked once a day and saved in the browser. A game counts when it starts. The day rolls
+over at 04:00. Each game calls `window.Arcade.tryStart()` before starting a new game;
+a new game must do the same.
