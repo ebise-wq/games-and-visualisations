@@ -26,3 +26,4 @@ The arcade is an installable web app (`docs/manifest.json`, `docs/sw.js`, `docs/
 The service worker keeps a copy of every page for offline play.
 **After changing any page, bump `VERSION` in `docs/sw.js`**, or installed copies keep the old files.
 A new game also needs adding to the `CORE` list in `docs/sw.js`, plus the same head tags as the other pages.
+When replacing a thumbnail, save it under a new file name (e.g. `race-3.jpg`), or browsers keep showing the old one.

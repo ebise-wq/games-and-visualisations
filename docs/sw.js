@@ -1,11 +1,11 @@
 // Service worker: keeps a copy of the arcade on the device so it opens offline.
 // Bump VERSION whenever any page changes, so devices fetch the new files.
-const VERSION = "arcade-v4";
+const VERSION = "arcade-v5";
 const CORE = [
   "./", "index.html", "manifest.json", "pwa.js",
   "InfluenceFloodGlobe.html", "InfluenceFloodRace.html", "MazeRunner.html",
   "BoomBust.html", "TruthOrDrink.html",
-  "img/globe.jpg", "img/race.jpg", "img/maze.jpg", "img/boombust.jpg", "img/truth.jpg",
+  "img/globe-2.jpg", "img/race-2.jpg", "img/maze-2.jpg", "img/boombust-2.jpg", "img/truth-2.jpg",
   "icons/icon-192.png", "icons/apple-touch-icon.png",
   "https://cdn.tailwindcss.com/3.4.16",
   "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
@@ -15,7 +15,7 @@ self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) =>
     // cache.add() rejects cross-origin (opaque) responses, so fetch and store by hand.
     Promise.all(CORE.map((url) => {
-      const req = new Request(url, { mode: url.startsWith("http") ? "no-cors" : "same-origin" });
+      const req = new Request(url, { mode: url.startsWith("http") ? "no-cors" : "same-origin", cache: "reload" });
       return fetch(req).then((res) => (res.ok || res.type === "opaque") && c.put(req, res)).catch(() => {});
     }))
   ).then(() => self.skipWaiting()));
