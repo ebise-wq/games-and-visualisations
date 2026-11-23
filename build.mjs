@@ -2,10 +2,11 @@
 import { build } from "esbuild";
 import { writeFileSync } from "node:fs";
 
+const BASE = "https://ebise-wq.github.io/games-and-visualisations/";
 const games = [
-  { file: "InfluenceFloodGlobe", title: "Influence Flood: Globe" },
-  { file: "InfluenceFloodRace", title: "Influence Flood: Race" },
-  { file: "TruthOrDrink", title: "Truth or Dare or Drink or Toke", bg: "#0a0a1a" },
+  { file: "InfluenceFloodGlobe", title: "Influence Flood: Globe", desc: "Flood the world", img: "globe-2.jpg" },
+  { file: "InfluenceFloodRace", title: "Influence Flood: Race", desc: "Paint, then flood", img: "race-2.jpg" },
+  { file: "TruthOrDrink", title: "Truth or Dare or Drink or Toke", desc: "Answer, dare, or drink", img: "truth-2.jpg", bg: "#0a0a1a" },
 ];
 
 for (const g of games) {
@@ -33,6 +34,15 @@ for (const g of games) {
 <meta name="apple-mobile-web-app-title" content="Arcade">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="pwa.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Siebe's Arcade">
+<meta property="og:title" content="${g.title}">
+<meta property="og:description" content="${g.desc}">
+<meta property="og:url" content="${BASE}${g.file}.html">
+<meta property="og:image" content="${BASE}img/${g.img}">
+<meta property="og:image:width" content="1120">
+<meta property="og:image:height" content="840">
+<meta name="twitter:card" content="summary_large_image">
 <title>${g.title}</title>
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 <style>html,body{margin:0;background:${g.bg || "#0f1420"}}</style>
