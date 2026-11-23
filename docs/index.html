@@ -52,6 +52,19 @@
   .card:hover .play{transform:scale(1.08)}
   .play svg{width:18px;height:18px;margin-left:3px}
   footer{margin-top:44px;color:rgba(154,166,194,.45);font-size:13px;text-align:center}
+  @media (max-width:640px){
+    main{padding-top:36px}
+    header{margin-bottom:24px}
+    .grid{gap:14px}
+    .card{flex-direction:row;border-radius:16px;height:150px}
+    .thumb{flex:none;width:46%;height:100%;aspect-ratio:auto}
+    .body{padding:12px 14px;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px}
+    .body div{flex:none}
+    h2{font-size:19px}
+    .tag{font-size:15px}
+    .play{width:38px;height:38px}
+    .play svg{width:15px;height:15px}
+  }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -89,7 +102,7 @@
     </a>
   </section>
 
-  <footer>v5</footer>
+  <footer>v6</footer>
 </main>
 </body>
 </html>
