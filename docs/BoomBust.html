@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1c130b">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Arcade">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="pwa.js" defer></script>
+<title>Boom & Bust — a colony that can die</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Siebe's Arcade">
+<meta property="og:title" content="Boom &amp; Bust">
+<meta property="og:description" content="Keep the colony alive">
+<meta property="og:url" content="https://ebise-wq.github.io/games-and-visualisations/BoomBust.html">
+<meta property="og:image" content="https://ebise-wq.github.io/games-and-visualisations/img/boombust-2.jpg">
+<meta property="og:image:width" content="1120">
+<meta property="og:image:height" content="840">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --soil-0:#1c130b; --soil-1:#271a10; --rock:#4a3a2c;
+    --food-phero:#f2b134; --home-phero:#37c6b0; --warn:#ce8c96;
+    --ant:#efe6d2; --food:#ff7a6b; --nest:#e0983f; --accent:#f2b134;
+    --text-hi:#f4ece0; --text-lo:#b6a691; --text-faint:#8a7b66;
+    --panel:rgba(24,16,10,0.76); --panel-line:rgba(242,177,52,0.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--soil-0)}
+  body{font-family:"Inter",system-ui,sans-serif;color:var(--text-hi);-webkit-font-smoothing:antialiased;position:fixed;inset:0;touch-action:none}
+  canvas{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+
+  .zoombar{position:fixed;bottom:clamp(12px,3vw,22px);left:clamp(12px,3vw,22px);z-index:12;
+    display:flex;align-items:center;gap:1px;background:rgba(24,16,10,0.78);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border:1px solid var(--panel-line);border-radius:999px;padding:3px;box-shadow:0 8px 24px -8px rgba(0,0,0,0.6)}
+  .zoombar button{width:26px;height:26px;border-radius:50%;border:none;background:rgba(242,177,52,0.1);
+    color:var(--accent);font-size:16px;font-weight:600;line-height:1;cursor:pointer;font-family:"Inter",sans-serif;
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease}
+  .zoombar button:hover{background:rgba(242,177,52,0.22)}
+  .zoombar button:active{transform:scale(0.92)}
+  .zoombar button:disabled{opacity:0.3;cursor:default}
+  .zoombar span{min-width:26px;text-align:center;font-family:"Space Mono",monospace;font-size:11px;color:var(--text-lo)}
+
+  .inspectBox{position:fixed;z-index:15;pointer-events:none;display:none;
+    background:rgba(20,14,8,0.92);border:1px solid rgba(232,217,168,0.4);border-radius:10px;
+    padding:7px 10px;font-family:"Space Mono",monospace;font-size:11px;white-space:nowrap;
+    box-shadow:0 8px 20px -6px rgba(0,0,0,0.7)}
+  .inspectBox.show{display:block}
+  .inspectBox .ib-row{display:flex;align-items:center;gap:6px;color:var(--text-hi);line-height:1.5}
+  .inspectBox .ib-dot{width:7px;height:7px;border-radius:2px;flex:0 0 auto}
+  .inspectBox .ib-label{margin-top:3px;padding-top:3px;border-top:1px solid rgba(232,217,168,0.15);
+    font-family:"Inter",sans-serif;font-size:10px;color:var(--accent);font-weight:600}
+
+  .mark{position:fixed;top:clamp(14px,3.5vw,32px);left:clamp(14px,3.5vw,36px);z-index:5;pointer-events:none;max-width:min(60vw,460px);text-shadow:0 2px 22px rgba(8,4,2,0.6)}
+  .mark h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;line-height:0.9;font-size:clamp(32px,7vw,68px);letter-spacing:-0.02em;color:var(--text-hi)}
+  .mark h1 em{font-style:normal;color:var(--accent)}
+  .mark p{margin-top:11px;font-size:clamp(12px,2.6vw,15px);line-height:1.45;color:var(--text-lo);max-width:42ch}
+
+  .stats{position:fixed;top:clamp(14px,3.5vw,32px);right:clamp(14px,3.5vw,32px);z-index:5;text-align:right;pointer-events:none;font-family:"Space Mono",monospace;max-width:42vw}
+  .stats .big{font-size:clamp(30px,6vw,46px);color:var(--accent);line-height:1;letter-spacing:-0.02em}
+  .stats .lab{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-faint);margin-top:6px}
+  .stats .rate{font-size:12px;color:var(--text-lo);margin-top:10px;font-family:"Inter",sans-serif}
+  .stats .state{font-size:11px;color:var(--accent);margin-top:3px;font-family:"Inter",sans-serif;font-weight:600}
+  .stats .tiny{font-size:10px;color:var(--text-faint);margin-top:5px}
+
+  .panel{position:fixed;z-index:10;right:clamp(16px,3vw,28px);bottom:clamp(16px,3vw,28px);width:clamp(300px,32vw,368px);max-height:calc(100vh - 48px);
+    background:var(--panel);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);
+    border:1px solid var(--panel-line);border-radius:18px;padding:0 18px 16px;overflow-y:auto;overflow-x:hidden;box-shadow:0 24px 60px -20px rgba(0,0,0,0.72)}
+  .panel::-webkit-scrollbar{width:8px}
+  .panel::-webkit-scrollbar-thumb{background:rgba(242,177,52,0.22);border-radius:8px}
+
+  .p-head{position:sticky;top:0;z-index:25;display:flex;align-items:center;justify-content:space-between;margin:0 -18px 4px;padding:16px 18px 10px;
+    background:rgba(24,16,10,0.93);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border-radius:18px 18px 0 0;border-bottom:1px solid rgba(242,177,52,0.1)}
+  .p-head .t{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-faint);font-family:"Space Mono",monospace}
+  .collapse{background:none;border:none;color:var(--text-lo);cursor:pointer;font-family:"Space Mono",monospace;font-size:16px;line-height:1;padding:4px;display:none}
+
+  .thesis{font-size:13px;line-height:1.5;color:var(--text-lo);padding:8px 0 14px;border-bottom:1px solid rgba(242,177,52,0.1);margin-bottom:14px}
+  .thesis b{color:var(--text-hi);font-weight:600}
+
+  .sect-lab{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-faint);font-family:"Space Mono",monospace;margin:0 0 9px}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px}
+  .tool{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text-lo);background:rgba(242,177,52,0.05);border:1px solid rgba(242,177,52,0.16);border-radius:10px;padding:9px 11px;cursor:pointer;transition:all .15s ease}
+  .tool .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .tool.on{background:rgba(242,177,52,0.16);border-color:var(--accent);color:var(--text-hi)}
+  .tool:hover{color:var(--text-hi)}
+  .tool-hint{font-size:11px;line-height:1.4;color:var(--text-faint);margin:0 0 16px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+  .chip{font-size:12px;font-weight:500;color:var(--text-lo);background:rgba(242,177,52,0.06);border:1px solid rgba(242,177,52,0.18);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .16s ease;white-space:nowrap}
+  .chip:hover{color:var(--text-hi);border-color:rgba(242,177,52,0.4)}
+  .chip.on{background:var(--accent);color:#2a1c06;border-color:var(--accent);font-weight:600}
+
+  .field{margin-bottom:15px}
+  .field-lab{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--text-lo);margin-bottom:5px}
+  .field-lab .v{font-family:"Space Mono",monospace;color:var(--accent);font-size:12px}
+  .field-sub{font-size:11px;line-height:1.35;color:var(--text-faint);margin-top:5px}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;background:rgba(242,177,52,0.18);outline:none;margin:2px 0;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #2a1c06;cursor:pointer;box-shadow:0 0 0 3px rgba(242,177,52,0.12)}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #2a1c06;cursor:pointer}
+
+  .miniBar{width:100%;height:4px;border-radius:3px;background:rgba(242,177,52,0.12);margin-top:9px;overflow:hidden}
+  .miniBar span{display:block;height:100%;background:var(--accent);width:0%;transition:width .25s linear}
+  .miniBar-lab{display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);margin-top:4px;font-family:"Space Mono",monospace}
+
+  .divider{height:1px;background:rgba(242,177,52,0.1);margin:2px 0 16px}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .sw{position:relative;width:34px;height:19px;flex:0 0 auto;border-radius:999px;background:rgba(255,255,255,0.1);cursor:pointer;transition:background .18s ease;border:1px solid rgba(255,255,255,0.08)}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--text-faint);transition:all .18s ease}
+  .sw.on{background:rgba(242,177,52,0.28);border-color:#c99a3f}
+  .sw.on::after{left:17px;background:var(--accent)}
+  .row .rl{font-size:13px;color:var(--text-hi);font-weight:500}
+
+  .actions{display:flex;gap:8px;margin-top:4px}
+  .btn{flex:1;font-size:13px;font-weight:600;padding:9px;border-radius:10px;cursor:pointer;border:1px solid rgba(242,177,52,0.25);background:rgba(242,177,52,0.08);color:var(--text-hi);transition:all .15s ease}
+  .btn:hover{background:rgba(242,177,52,0.16)}
+  .btn:active{transform:translateY(1px)}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:15px;padding-top:12px;border-top:1px solid rgba(242,177,52,0.1)}
+  .foot .legend{display:flex;gap:10px;font-size:10px;color:var(--text-faint);font-family:"Space Mono",monospace;flex-wrap:wrap}
+  .foot .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .ver{font-size:10px;color:var(--text-faint);font-family:"Space Mono",monospace;white-space:nowrap}
+
+  details.notes{margin-top:14px}
+  details.notes summary{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-faint);font-family:"Space Mono",monospace;cursor:pointer;list-style:none}
+  details.notes summary::-webkit-details-marker{display:none}
+  details.notes summary::before{content:"› ";color:var(--accent)}
+  details.notes[open] summary::before{content:"⌄ "}
+  details.notes p{font-size:11.5px;line-height:1.5;color:var(--text-faint);margin-top:9px}
+  details.notes p b{color:var(--text-lo)}
+
+  @media (max-width:720px){
+    .mark{max-width:54vw}
+    .panel{right:8px;left:8px;bottom:8px;width:auto;max-height:54vh;border-radius:16px 16px 0 0;padding:0 15px 14px}
+    .p-head{margin:0 -15px 4px;padding:14px 15px 11px;border-radius:16px 16px 0 0}
+    .collapse{display:block;padding:6px 8px;margin:-6px -8px -6px 0}
+    .panel.folded{max-height:52px;overflow:hidden}
+    .panel.folded .p-body{display:none}
+    .zoombar{bottom:64px;left:10px}
+  }
+  @media (max-height:560px) and (min-width:721px){.mark p{display:none}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="zoombar" id="zoombar">
+  <button id="zoomOut" aria-label="Zoom out (larger world)">−</button>
+  <span id="zoomLvl">1×</span>
+  <button id="zoomIn" aria-label="Zoom in (smaller world)">+</button>
+</div>
+
+<div class="inspectBox" id="inspectBox" aria-hidden="true">
+  <div class="ib-row"><span class="ib-dot" style="background:var(--food-phero)"></span><span id="ibFood">food 0</span></div>
+  <div class="ib-row"><span class="ib-dot" style="background:var(--home-phero)"></span><span id="ibHome">home 0</span></div>
+  <div class="ib-label" id="ibLabel">—</div>
+</div>
+
+<div class="mark">
+  <h1>Boom <em>&amp; Bust</em></h1>
+  <p>The same stigmergy colony — but every ant is mortal, and every birth is paid for. Population is no longer a dial; it's what the colony earns.</p>
+</div>
+
+<div class="stats" aria-hidden="true">
+  <div class="big" id="pop">0</div>
+  <div class="lab">population</div>
+  <div class="rate" id="bd">+0/min born · −0/min died</div>
+  <div class="state" id="state">colony founding</div>
+  <div class="tiny" id="tiny">0 delivered all-time</div>
+  <div class="tiny" id="tiny2">peak 0 · farthest 0px</div>
+</div>
+
+<div class="panel" id="panel">
+  <div class="p-head"><span class="t">the colony · economy</span><button class="collapse" id="collapseBtn" aria-label="Collapse controls">▾</button></div>
+  <div class="p-body" id="pbody">
+    <p class="thesis">Same two pheromones, same stigmergy. Now add stakes: <b>wander too long without a win and an ant dies</b>; <b>deliver enough surplus and the colony spends it on a newborn</b>.</p>
+
+    <p class="sect-lab">Draw on the world</p>
+    <div class="tools" id="tools">
+      <button class="tool on" data-tool="food"><span class="dot" style="background:var(--food)"></span>Drop food</button>
+      <button class="tool" data-tool="wall"><span class="dot" style="background:var(--rock)"></span>Build wall</button>
+      <button class="tool" data-tool="nest"><span class="dot" style="background:var(--nest)"></span>Move nest</button>
+      <button class="tool" data-tool="nest2"><span class="dot" style="background:#c97a3a"></span>Add nest</button>
+      <button class="tool" data-tool="erase"><span class="dot" style="background:#6b5a48"></span>Erase</button>
+      <button class="tool" data-tool="inspect"><span class="dot" style="background:#e8d9a8"></span>Inspect</button>
+    </div>
+    <p class="tool-hint">Drop food to feed a starving colony back to growth, or wall off the easy route and watch the death toll rise until a new trail forms. Add nest places another entrance for the same colony, with no limit on how many — every nest shares the same stockpile and population, just more doors. Move nest grabs whichever nest is nearest and drags it wherever you like. Erase clears walls, and instantly removes food sources and nests you drag over — though it won't remove your last remaining nest. It still leaves a no-entry mark where a source was, so ants already en route learn it's gone. Inspect shows the actual food/home scent numbers under your finger, useful whenever a color on the map is ambiguous.</p>
+
+    <p class="sect-lab">Scenarios</p>
+    <div class="presets" id="presets">
+      <button class="chip" data-preset="forage">Open field</button>
+      <button class="chip" data-preset="barrier">Barrier</button>
+      <button class="chip" data-preset="bridge">Two bridges</button>
+      <button class="chip on" data-preset="wild">Wild terrain</button>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Trail evaporation</span><span class="v" id="evapVal">medium</span></div>
+      <input type="range" min="0" max="100" step="1" value="34" id="evapSlider">
+      <div class="field-sub">Too slow and dead-ends stay marked; too fast and trails vanish before anyone can follow.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Randomness</span><span class="v" id="wanderVal">0.22</span></div>
+      <input type="range" min="0" max="300" step="1" value="22" id="wanderSlider">
+      <div class="field-sub">Heading jitter in radians. Push it high enough and searching becomes lethal — ants wander past food they'd otherwise have smelled.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Walking speed</span><span class="v" id="speedVal">1.35</span></div>
+      <input type="range" min="0.4" max="3" step="0.05" value="1.35" id="speedSlider">
+      <div class="field-sub">World-pixels covered per simulation step. Independent of your screen's refresh rate — this won't drift if the app runs on a 60Hz vs. 120Hz display.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Antenna reach</span><span class="v" id="senseVal">9</span></div>
+      <input type="range" min="4" max="22" step="1" value="9" id="senseSlider">
+      <div class="field-sub">How far ahead each ant samples the scent when deciding where to turn.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Home beacon reach</span><span class="v" id="beaconVal">200px</span></div>
+      <input type="range" min="20" max="260" step="5" value="200" id="beaconSlider">
+      <div class="field-sub">The ceiling a nest's beacon can grow toward — not a fixed value. Every nest starts at 18px and earns its way toward this ceiling over its first 10,000 deliveries, slowly at first, still climbing at the end. A brand-new nest is genuinely fragile: hard to find until it's proven itself. Searchers lay home-scent everywhere they wander, even before finding food — with many ants out at once, that can pool into patches that are locally strong but point nowhere. Too small a ceiling, and even a mature nest can lose to one of those false patches. Too big, and the last stretch home stops being an emergent trail — it's just a beacon pulling ants in.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Homing instinct</span><span class="v" id="homingVal">0.03</span></div>
+      <input type="range" min="0" max="0.12" step="0.005" value="0.03" id="homingSlider">
+      <div class="field-sub">A soft compass pulling carriers toward the nest's actual direction, on top of scent-following. Real scent, when it exists, still corrects far more per step than this — it only shows up when scent is weak or absent, so a lost carrier drifts roughly homeward instead of wandering with no preference at all. Set to 0 for pure scent-following, no compass. This is a simplification worth noting: it gives the ant a compass, rather than modelling how it would actually sense direction — a bigger abstraction than the beacon above.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>No-entry strength</span><span class="v" id="repelVal">44</span></div>
+      <input type="range" min="0" max="120" step="4" value="44" id="repelSlider">
+      <div class="field-sub">A searcher that walks up to an empty source now marks it as repellent instead of just wandering off — the same idea as the negative "no-entry" trail pheromone Pharaoh ants use on unrewarding branches (Robinson &amp; Ratnieks), rather than waiting for the old positive trail to fade on its own. Shows on the map as a dull rust tint. Set to 0 to go back to passive evaporation only.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Food spawn interval</span><span class="v" id="foodIntVal">24s</span></div>
+      <input type="range" min="8" max="50" step="1" value="24" id="foodIntSlider">
+      <div class="field-sub">Wild terrain only: the base wait between new food sources. Both the wait and the size of each source scale with population — a bigger colony gets fed more often and with bigger drops, so growth doesn't outrun supply and turn every source into a repellent zone within seconds. The wait has a floor so it never gets absurdly fast. Every candidate spot is checked against a live reachability map from the nest and given clearance from nearby walls, so food never appears sealed behind terrain or crammed against it. The terrain itself keeps changing too, with new wall clusters appearing every so often, never over the nest or an active food source.</div>
+    </div>
+
+    <div class="divider"></div>
+
+
+    <div class="field">
+      <div class="field-lab"><span>Forage stamina</span><span class="v" id="staminaVal">16s</span></div>
+      <input type="range" min="4" max="40" step="0.5" value="16" id="staminaSlider">
+      <div class="field-sub">How long an ant can go without a win — finding food, or finding home — before it dies. Resets to full on every success, so an ant riding a good trail is nearly immortal; one exploring blind is gambling with every step.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Giving-up point</span><span class="v" id="giveUpVal">45%</span></div>
+      <input type="range" min="10" max="70" step="5" value="45" id="giveUpSlider">
+      <div class="field-sub">Once a searcher has burned through to this fraction of its life without finding food, it starts doubting its own breadcrumbs — the home-scent it lays fades toward zero, reaching nothing well before it actually dies. Keeps ants that are probably already lost from seeding fresh false trails with their most aimless wandering. Carriers heading home, marking a route that just proved out, are untouched.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Birth cost</span><span class="v" id="birthVal">50</span></div>
+      <input type="range" min="15" max="200" step="5" value="50" id="birthCostSlider">
+      <div class="field-sub">Stockpile needed to raise one worker. Lower it for a colony that grows greedily off small surpluses; raise it and only a strong, established trail outpaces the colony's own upkeep.</div>
+      <div class="miniBar"><span id="stockBar"></span></div>
+      <div class="miniBar-lab"><span id="stockLab">0 / 50 reserve</span><span>→ next worker</span></div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Food richness</span><span class="v" id="richnessVal">0.50×</span></div>
+      <input type="range" min="30" max="150" step="5" value="50" id="richnessSlider">
+      <div class="field-sub">Scales how much each food source starts with, and how fast it drains per visit. Sources are designed to actually run dry, not last forever.</div>
+    </div>
+
+    <div class="field">
+      <div class="field-lab"><span>Starting population</span><span class="v" id="startPopVal">90</span></div>
+      <input type="range" min="20" max="220" step="5" value="90" id="startPopSlider">
+      <div class="field-sub">Applies next reset. After that, population is dynamic — driven by births and deaths, not this dial.</div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="row"><div class="sw on" id="pheroSw"></div><span class="rl">Show scent trails</span></div>
+
+    <div class="actions">
+      <button class="btn" id="pauseBtn">Pause</button>
+      <button class="btn" id="resetBtn">Reset scenario</button>
+    </div>
+
+    <details class="notes">
+      <summary>How this works</summary>
+      <p><b>Every ant is mortal.</b> Each one carries a stamina clock that resets only on success — finding food, or reaching home. Run out before either happens and it dies (a fading ring marks where). An ant riding an established trail wins constantly and almost never runs the clock down; one exploring blind is gambling with every step. This is a coarse stand-in for real foraging risk, not a literal timer any real ant carries — actual foragers that overstay face rising odds of predation, dehydration, or, for heat-adapted foragers like desert ants (<i>Cataglyphis</i>), fatal overheating. The underlying idea — give up and turn back once a trip has run too long unrewarded — is Charnov's (1976) marginal value theorem and the "giving-up time" it predicts, which has been measured directly in real foraging ants.</p>
+      <p><b>Births come from surplus.</b> Every delivery adds to a shared stockpile, and the colony constantly burns a little of it just to exist. Cross the birth-cost threshold and the surplus buys a new worker. There's no population cap — a colony can grow as large as its foraging income supports.</p>
+      <p><b>A searcher that's probably lost stops lying.</b> The same stamina clock also governs how strongly a searcher marks its home-scent trail as it wanders: full strength early on, fading toward nothing as it burns through its budget without success. An ant that's likely already lost stops seeding fresh false trails with its most aimless wandering — you can watch this happen directly, since a fading searcher also grows more transparent on screen.</p>
+      <p><b>Dead ends actively warn other ants away.</b> When a food source runs dry, a searcher that walks up to it doesn't just wander off — it marks the spot as repellent, and keeps marking a stretch of its way back too. Repeated visits reinforce this "no-entry" signal, the same trick Pharaoh ants use on unrewarding branches (Robinson &amp; Ratnieks) rather than waiting for the old trail to fade on its own. It shows on the map as a dull rust tint, and fades away over time just like ordinary trail scent.</p>
+      <p><b>The nest broadcasts too — but it has to earn its range.</b> Close to its entrance, the nest emits a signal of its own, so a carrier reliably finds its way home even if the trail leading there is faint or ambiguous. A brand-new nest starts with only a short-range, weak version of this and grows it slowly with every successful delivery, so a young outpost is genuinely fragile until it's proven itself. Carriers also get a small, constant pull toward the nest's true direction, layered underneath scent-following — real scent always wins when a trail exists; the pull only matters when there's nothing else to follow. Worth flagging as a simplification: this hands the ant a compass rather than modelling how it would actually sense direction.</p>
+      <p><b>Wild Terrain</b> generates a maze of walls around the nest and keeps reshaping it — new wall clusters appear every so often, checked to never seal off the nest or an active food source. Food spawns periodically in reachable spots only, checked against a live map of what the colony can actually walk to, so nothing appears sealed behind a wall. Both how often it appears and how much each source holds scale with population — a bigger colony gets fed more often and with bigger drops, so growth doesn't outrun supply.</p>
+      <p><b>More nests</b> can be built as additional entrances for the same colony, with no cap on how many — shared stockpile, shared population, just more physical doors. Ants use whichever nest is nearest.</p>
+      <p><b>A couple of honest caveats.</b> The founding cohort gets extra stamina on their first trip out, since with no trail yet established their blind odds are much worse than the colony's steady state — without that head start, most runs would die out before any trail could form. If a scenario collapses immediately or grows unchecked, Forage stamina, Birth cost, and Food richness are the first three sliders worth adjusting.</p>
+    </details>
+
+    <div class="foot">
+      <div class="legend">
+        <span><i style="background:var(--food-phero)"></i>food</span>
+        <span><i style="background:var(--home-phero)"></i>home</span>
+        <span><i style="background:#a12a26"></i>no-entry</span>
+        <span><i style="background:var(--warn)"></i>low stamina</span>
+      </div>
+      <span class="ver" id="ver">v1.0</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const VERSION="5.0";
+  document.getElementById('ver').textContent="v"+VERSION;
+
+  const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+  let W=0,H=0,dpr=1,cell=4,cols=0,rows=0;      // W,H are WORLD dimensions (may exceed screen); grid covers the world
+  let scrW=0,scrH=0;                            // actual screen/canvas pixel dimensions
+  let foodP, homeP, wall, wallEdge, foodTmp, homeTmp;
+  let terrainCv=null, terrainCtx=null, terrainScale=3, terrainDirty=true;
+  let foodYoung, homeYoung;                     // stage 1: freshly-laid scent, not yet sensed
+  let foodYoung2, homeYoung2;                    // stage 2: a delay cascade — see CASCADE_RATE below
+  let field, fieldCtx, fieldImg;
+  let ants=[], nests=[{x:0,y:0,r:15}], foods=[], sparks=[];
+  let delivered=0, births=0, deaths=0, stock=0;
+  let maxPopSeen=0, foodRangeMax=0;
+  let popHist=[], bHist=[], dHist=[];
+  let currentPreset='wild';
+  const DEAD_LINGER=15;   // real seconds a depleted source stays "findable" before it's fully gone
+  let foodSpawnTimer=0, terrainSpawnTimer=0, reachCache=null;
+  const TERRAIN_INTERVAL=40;   // real seconds between new terrain growth — rarer than food, since it reshapes the map
+  const NEST_BEACON_START=18, BEACON_GROWTH_DELIVERIES=10000;   // a nest starts weak and earns its beacon strength —
+                                                                  // always takes this many deliveries to hit the
+                                                                  // ceiling ("Home beacon reach"), whatever it's set to
+  const FOOD_INTERVAL_REF=130, FOOD_INTERVAL_FLOOR=12, FOOD_SCALE_CAP=8;   // interval and amount both scale with
+                                                                             // sqrt(population/ref) — NOT population
+                                                                             // directly, or the two multiplied
+                                                                             // together turn into population², which
+                                                                             // is what caused runaway growth before
+                                                          // half the wait — down to a floor so it can't go absurd
+  let worldMult=3;                             // world is ALWAYS built at max size; zoom is a camera, not a rebuild
+  const WORLD_MULT_MAX=3;
+  // camera: camZoom = world-units shown across one screen width relative to full world.
+  // camScale maps world px -> screen px. Higher camScale = zoomed in (see less world).
+  let camScale=1, camX=0, camY=0;              // camScale = screen px per world px; source of truth for zoom. 1 = 1:1
+  const CAM_MIN=1/WORLD_MULT_MAX, CAM_MAX=2.2; // continuous zoom bounds (whole world … 2.2× in)
+
+  const STEP_SEC=1/60, UPKEEP=0.02, STOCK_PER_DELIVERY=5, FOUNDER_MULT=2.2, NEST_R=20;
+  function nearestNest(x,y){
+    let best=nests[0], bestD=Infinity;
+    for(const n of nests){ const d=(x-n.x)*(x-n.x)+(y-n.y)*(y-n.y); if(d<bestD){bestD=d; best=n;} }
+    return best;
+  }
+  const BASE_MAX={forage:6000, barrier:7000, bridge:8000};
+
+  const P={
+    speed:1.35, sensorAngle:0.5, turnSpeed:0.42, sensorDist:9, wander:0.22, evap:0.985,
+    startPop:90, deposit:44, cap:300,
+    staminaSec:16, birthCost:50, richness:0.5, beaconReach:200, giveUp:0.45, homingBias:0.03, repel:44, foodInterval:24,
+    showPhero:true, paused:false, tool:'food'
+  };
+
+  const SOIL=[28,19,11], ROCK=[74,58,44];
+  const F_D=[214,158,41], H_D=[27,179,165], NEG_D=[150,42,38];
+
+  function alloc(){
+    // grid covers the full (max-size) world once; coarsen cells so a 3x world stays performant
+    const base=(scrW<720)?4:(scrW>1900?5:4);
+    cell=Math.max(base, Math.round(base*Math.sqrt(worldMult)));
+    cols=Math.ceil(W/cell); rows=Math.ceil(H/cell);
+    foodP=new Float32Array(cols*rows); homeP=new Float32Array(cols*rows);
+    foodTmp=new Float32Array(cols*rows); homeTmp=new Float32Array(cols*rows);
+    foodYoung=new Float32Array(cols*rows); homeYoung=new Float32Array(cols*rows);
+    foodYoung2=new Float32Array(cols*rows); homeYoung2=new Float32Array(cols*rows);
+    wall=new Uint8Array(cols*rows);
+    wallEdge=new Float32Array(cols*rows);   // smooth 0-1 coverage — lets wall edges fade instead of stair-stepping
+    field=document.createElement('canvas'); field.width=cols; field.height=rows;
+    fieldCtx=field.getContext('2d'); fieldImg=fieldCtx.createImageData(cols,rows);
+    // terrain is static between edits, so it gets its own canvas at much higher resolution than the
+    // simulation grid — the coarse cell size is a performance requirement for the pheromone fields,
+    // not a reason for the rock to look like 7px blocks.
+    terrainScale=3;
+    terrainCv=document.createElement('canvas');
+    terrainCv.width=Math.min(4096, cols*terrainScale); terrainCv.height=Math.min(4096, rows*terrainScale);
+    terrainScale=terrainCv.width/cols;                 // recompute in case the cap kicked in
+    terrainCtx=terrainCv.getContext('2d');
+    terrainDirty=true;
+  }
+  function resize(){
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    scrW=window.innerWidth; scrH=window.innerHeight;
+    worldMult=WORLD_MULT_MAX;
+    W=scrW*worldMult; H=scrH*worldMult;                 // world is always the max size
+    canvas.width=Math.floor(scrW*dpr); canvas.height=Math.floor(scrH*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+    alloc(); applyPreset(currentPreset);
+    updateCamera();                                     // re-centre camera for the new screen size
+  }
+  // Camera only — never touches the simulation, so changing zoom never resets anything.
+  function clampCam(){
+    const viewW=scrW/camScale, viewH=scrH/camScale;     // world-units visible
+    if(viewW>=W) camX=(W-viewW)/2; else camX=Math.max(0, Math.min(W-viewW, camX));
+    if(viewH>=H) camY=(H-viewH)/2; else camY=Math.max(0, Math.min(H-viewH, camY));
+  }
+  function updateCamera(){                               // recentre on the nest at the current camScale
+    const viewW=scrW/camScale, viewH=scrH/camScale;
+    camX=nests[0].x - viewW/2; camY=nests[0].y - viewH/2;
+    clampCam();
+  }
+  function panBy(dxScreen,dyScreen){                     // two-finger drag: move the camera in world units
+    camX -= dxScreen/camScale; camY -= dyScreen/camScale;
+    clampCam();
+  }
+  // pinch zoom: scale by `factor` while keeping the world point under (sx,sy) fixed on screen
+  function zoomAround(factor, sx, sy){
+    const rect=canvas.getBoundingClientRect();
+    const wx=(sx-rect.left)/camScale + camX;             // world point under the pinch centre
+    const wy=(sy-rect.top)/camScale + camY;
+    camScale=Math.max(CAM_MIN, Math.min(CAM_MAX, camScale*factor));
+    camX=wx-(sx-rect.left)/camScale;                     // re-anchor so that world point stays under the fingers
+    camY=wy-(sy-rect.top)/camScale;
+    clampCam();
+    syncZoomLabel();
+  }
+
+  const gi=(gx,gy)=>gy*cols+gx;
+  function stampRect(px0,py0,px1,py1,val){
+    const x0=Math.max(0,Math.floor(px0/cell)),x1=Math.min(cols-1,Math.ceil(px1/cell));
+    const y0=Math.max(0,Math.floor(py0/cell)),y1=Math.min(rows-1,Math.ceil(py1/cell));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){wall[gi(x,y)]=val; if(val){foodP[gi(x,y)]=0;homeP[gi(x,y)]=0;}}
+  }
+  function carveDisc(cx,cy,r){                 // cx,cy,r all in world pixels
+    const gx=cx/cell,gy=cy/cell,gr=r/cell;
+    const x0=Math.max(0,Math.floor(gx-gr)),x1=Math.min(cols-1,Math.ceil(gx+gr));
+    const y0=Math.max(0,Math.floor(gy-gr)),y1=Math.min(rows-1,Math.ceil(gy+gr));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const dx=x-gx,dy=y-gy;if(dx*dx+dy*dy<=gr*gr){const i=gi(x,y); wall[i]=0; wallEdge[i]=0;}} terrainDirty=true;
+  }
+  function carveLine(pts,r){for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];for(let s=0;s<=40;s++){const t=s/40;carveDisc(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,r);}}}
+  // ---- fractal value noise, for terrain that reads as landscape rather than stamped circles ----
+  function makeNoiseLattice(size){
+    const g=new Float32Array(size*size);
+    for(let i=0;i<g.length;i++) g[i]=Math.random();
+    return {g,size};
+  }
+  function latticeAt(L,ix,iy){                   // wraps, so the field tiles rather than hitting an edge
+    const s=L.size;
+    const x=((ix%s)+s)%s, y=((iy%s)+s)%s;
+    return L.g[y*s+x];
+  }
+  function smoothNoise(L, x, y){                 // bicubic-ish smoothstep interpolation between lattice points
+    const x0=Math.floor(x), y0=Math.floor(y);
+    const fx=x-x0, fy=y-y0;
+    const sx=fx*fx*(3-2*fx), sy=fy*fy*(3-2*fy);   // smoothstep — avoids the boxy look of linear interpolation
+    const n00=latticeAt(L,x0,y0),   n10=latticeAt(L,x0+1,y0);
+    const n01=latticeAt(L,x0,y0+1), n11=latticeAt(L,x0+1,y0+1);
+    return (n00*(1-sx)+n10*sx)*(1-sy) + (n01*(1-sx)+n11*sx)*sy;
+  }
+  function fbm(lattices, wx, wy, baseScale){     // sum several octaves: broad shapes + finer coastline detail
+    let sum=0, amp=1, norm=0, freq=1/baseScale;
+    for(let o=0;o<lattices.length;o++){
+      sum+=smoothNoise(lattices[o], wx*freq, wy*freq)*amp;
+      norm+=amp; amp*=0.5; freq*=2.1;             // 2.1 rather than exactly 2 avoids visible grid alignment
+    }
+    return sum/norm;
+  }
+  function stampWallDisc(cx,cy,r){              // still used by growTerrain's local additions
+    const gx=cx/cell,gy=cy/cell,gr=r/cell;
+    const x0=Math.max(0,Math.floor(gx-gr)),x1=Math.min(cols-1,Math.ceil(gx+gr));
+    const y0=Math.max(0,Math.floor(gy-gr)),y1=Math.min(rows-1,Math.ceil(gy+gr));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const dx=x-gx,dy=y-gy;if(dx*dx+dy*dy<=gr*gr){const i=gi(x,y); wall[i]=1; wallEdge[i]=1; foodP[i]=0; homeP[i]=0;}} terrainDirty=true;
+  }
+  let manualEdits=false;   // once the user paints walls, fall back to the grid-based path
+  let terrainNoise=null;   // saved noise params, so bakeTerrain can evaluate at full pixel resolution
+                            // rather than interpolating the coarse simulation grid (which pre-blurs edges)
+  function generateTerrain(){
+    const NEST_CLEAR=95;                          // soft radius around each nest kept fully open
+    const lattices=[makeNoiseLattice(16), makeNoiseLattice(32), makeNoiseLattice(64), makeNoiseLattice(128)];
+    const warpA=[makeNoiseLattice(16), makeNoiseLattice(32)];   // separate fields used to distort the lookup
+    const warpB=[makeNoiseLattice(16), makeNoiseLattice(32)];
+    const THRESH=0.60;
+    terrainNoise={lattices,warpA,warpB,THRESH,NEST_CLEAR}; manualEdits=false;                           // tuned by measuring density + reachability, not by eye
+    const SOFT=0.012;                             // narrow band: a wide one smears across several grid cells,
+                                                   // and no amount of downstream sharpening recovers detail
+                                                   // the stored field never had
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+      const wx=x*cell, wy=y*cell;
+      // domain warping: offset the sample point by another noise field. This is what turns round
+      // blobs into sinuous, branching, geologically-plausible shapes rather than lumps.
+      const wu=(fbm(warpA, wx, wy, 300)-0.5)*170;
+      const wv=(fbm(warpB, wx, wy, 300)-0.5)*170;
+      let v=fbm(lattices, wx+wu, wy+wv, 165);
+      let nearest=Infinity;
+      for(const n of nests){ const d=Math.hypot(wx-n.x, wy-n.y); if(d<nearest) nearest=d; }
+      if(nearest<NEST_CLEAR) continue;                            // fully open right around a nest
+      if(nearest<NEST_CLEAR*2.2) v-=0.30*(1-(nearest-NEST_CLEAR)/(NEST_CLEAR*1.2));   // taper outward
+      const i=gi(x,y);
+      // smooth coverage across the threshold band, so the rendered edge can be anti-aliased
+      const cov=Math.max(0,Math.min(1,(v-(THRESH-SOFT))/(2*SOFT)));
+      wallEdge[i]=cov;
+      if(v>THRESH){ wall[i]=1; foodP[i]=0; homeP[i]=0; }
+    }
+    ensureConnected();
+    terrainDirty=true;
+  }
+  function ensureConnected(){
+    // Domain-warped ridges are long and sinuous, which makes them much better at sealing off whole regions
+    // than round blobs were. Rather than tune the threshold until that stops happening (it doesn't, reliably),
+    // find the pockets and carve a channel out of each one. Guarantees a navigable map at any density.
+    for(let pass=0; pass<12; pass++){
+      const reach=computeReachable();
+      // find the largest unreachable open region, and a cell in it
+      let bestCell=-1, bestSize=0;
+      const seen=new Uint8Array(cols*rows);
+      for(let i=0;i<cols*rows;i++){
+        if(wall[i]||reach[i]||seen[i]) continue;
+        // flood this pocket
+        const stack=[i]; seen[i]=1; let size=0, sample=i;
+        while(stack.length){
+          const c=stack.pop(); size++;
+          const x=c%cols, y=(c/cols)|0;
+          const nb=[x>0?c-1:-1, x<cols-1?c+1:-1, y>0?c-cols:-1, y<rows-1?c+cols:-1];
+          for(const n of nb){ if(n>=0 && !seen[n] && !wall[n] && !reach[n]){ seen[n]=1; stack.push(n); } }
+        }
+        if(size>bestSize){ bestSize=size; bestCell=sample; }
+      }
+      if(bestCell<0 || bestSize<40) break;    // nothing meaningful left sealed off
+      // carve from the pocket toward the nearest nest. Heavy wander and varying width, so this reads as a
+      // natural passage rather than a ruled diagonal line cut across the map.
+      let px=(bestCell%cols)*cell, py=((bestCell/cols)|0)*cell;
+      const tgt=nearestNest(px,py);
+      let guard=0, drift=Math.random()*Math.PI*2;
+      while(Math.hypot(px-tgt.x,py-tgt.y)>40 && guard++<500){
+        drift+=(Math.random()-0.5)*0.9;                       // a slowly-turning bias, not fresh noise each step
+        const toTgt=Math.atan2(tgt.y-py, tgt.x-px);
+        let diff=drift-toTgt;
+        diff=((diff+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+        drift=toTgt+Math.max(-1.25,Math.min(1.25,diff));      // wander widely but never lose the target
+        px+=Math.cos(drift)*9; py+=Math.sin(drift)*9;
+        carveDisc(px,py,11+Math.sin(guard*0.19)*4+Math.random()*4);   // width breathes along the passage
+      }
+    }
+  }
+  function growTerrain(){                        // the map keeps changing during a run, not just once at setup
+    // local noise patches rather than circles, so new growth matches the base terrain's texture
+    const NEST_CLEAR=95;
+    const lattices=[makeNoiseLattice(16), makeNoiseLattice(32), makeNoiseLattice(64)];
+    const patches=2+((Math.random()*3)|0);
+    for(let p=0;p<patches;p++){
+      const cx=Math.random()*W, cy=Math.random()*H, R=90+Math.random()*130;
+      if(nests.some(n=>Math.hypot(cx-n.x,cy-n.y)<NEST_CLEAR+R*0.6)) continue;
+      if(foods.some(f=>Math.hypot(cx-f.x,cy-f.y)<R*0.7)) continue;
+      const gx0=Math.max(0,((cx-R)/cell)|0), gx1=Math.min(cols-1,((cx+R)/cell)|0);
+      const gy0=Math.max(0,((cy-R)/cell)|0), gy1=Math.min(rows-1,((cy+R)/cell)|0);
+      for(let y=gy0;y<=gy1;y++)for(let x=gx0;x<=gx1;x++){
+        const wx=x*cell, wy=y*cell;
+        const d=Math.hypot(wx-cx, wy-cy);
+        if(d>R) continue;
+        if(nests.some(n=>Math.hypot(wx-n.x,wy-n.y)<NEST_CLEAR)) continue;
+        if(foods.some(f=>Math.hypot(wx-f.x,wy-f.y)<55)) continue;
+        let v=fbm(lattices, wx, wy, 190);
+        v-=0.45*(d/R)*(d/R);                       // fade out toward the patch rim, no hard circular edge
+        const gi2=gi(x,y);
+        const cov2=Math.max(0,Math.min(1,(v-0.465)/0.07));
+        if(cov2>wallEdge[gi2]) wallEdge[gi2]=cov2;
+        if(v>0.50){ wall[gi2]=1; foodP[gi2]=0; homeP[gi2]=0; }
+      }
+    }
+    reachCache=null; terrainDirty=true;   // the map just changed — cached reachability no longer applies
+  }
+  function hasClearance(wx,wy,radiusPx){        // true only if NO wall cell exists within radiusPx — avoids food
+    const gx0=(wx/cell)|0, gy0=(wy/cell)|0;       // spawning right against a wall, where its own glow would overlap it
+    const rc=Math.ceil(radiusPx/cell);
+    for(let dy=-rc;dy<=rc;dy++)for(let dx=-rc;dx<=rc;dx++){
+      const gx=gx0+dx, gy=gy0+dy;
+      if(gx<0||gy<0||gx>=cols||gy>=rows) continue;
+      if(dx*dx+dy*dy>rc*rc) continue;
+      if(wall[gy*cols+gx]) return false;
+    }
+    return true;
+  }
+  function computeReachable(){                  // multi-source flood-fill: which cells can a nest actually reach
+    const reach=new Uint8Array(cols*rows);
+    const stack=[];
+    for(const n of nests){
+      const gx=(n.x/cell)|0, gy=(n.y/cell)|0;
+      if(gx<0||gy<0||gx>=cols||gy>=rows) continue;
+      const i=gi(gx,gy); if(!reach[i]){ reach[i]=1; stack.push(i); }
+    }
+    while(stack.length){
+      const i=stack.pop(); const x=i%cols, y=(i/cols)|0;
+      const nb=[x>0?i-1:-1, x<cols-1?i+1:-1, y>0?i-cols:-1, y<rows-1?i+cols:-1];
+      for(const ni of nb){ if(ni>=0 && !reach[ni] && !wall[ni]){ reach[ni]=1; stack.push(ni); } }
+    }
+    return reach;
+  }
+
+  function toWorld(px,py){
+    const rect=canvas.getBoundingClientRect();
+    return { x:(px-rect.left)/camScale + camX, y:(py-rect.top)/camScale + camY };
+  }
+  function toScreen(wx,wy){
+    const rect=canvas.getBoundingClientRect();
+    return { x: rect.left + (wx-camX)*camScale, y: rect.top + (wy-camY)*camScale };
+  }
+  const inspectBox=document.getElementById('inspectBox'), ibFood=document.getElementById('ibFood'),
+        ibHome=document.getElementById('ibHome'), ibLabel=document.getElementById('ibLabel');
+  function doInspect(wx,wy){
+    const f=sample(foodP,wx,wy), h=sample(homeP,wx,wy);
+    let label;
+    if(f<=-999) label='wall — no scent reaches here';
+    else if(f<-1 && h>1) label='no-entry + home trail (mixed)';
+    else if(f<-1) label='no-entry (repellent)';
+    else if(f>1 && h>1) label='established two-way route';
+    else if(f>1) label='food trail only';
+    else if(h>1) label='home trail only';
+    else label='bare ground — no scent';
+    ibFood.textContent='food '+(f<=-999?'—':f.toFixed(1));
+    ibHome.textContent='home '+(f<=-999?'—':h.toFixed(1));
+    ibLabel.textContent=label;
+    const s=toScreen(wx,wy);
+    inspectBox.style.left=Math.min(window.innerWidth-160, Math.max(8, s.x-65))+'px';
+    inspectBox.style.top=Math.max(8, s.y-80)+'px';
+    inspectBox.classList.add('show');
+  }
+
+  function clearWorld(){
+    foodP.fill(0); homeP.fill(0); wall.fill(0); wallEdge.fill(0); terrainDirty=true;
+    foodYoung.fill(0); homeYoung.fill(0);
+    foodYoung2.fill(0); homeYoung2.fill(0);
+    foods=[]; sparks=[]; delivered=0; births=0; deaths=0;
+    maxPopSeen=0; foodRangeMax=0;
+    stock=P.birthCost;                    // small seed reserve so growth can start quickly
+    popHist=[]; bHist=[]; dHist=[];
+    nests=[{x:W*0.2,y:H*0.5,r:NEST_R,delivered:0}];
+  }
+  function spawnAnts(){
+    ants=[];
+    for(let i=0;i<P.startPop;i++){
+      const n=nests[(Math.random()*nests.length)|0];
+      ants.push({x:n.x+(Math.random()-0.5)*16,y:n.y+(Math.random()-0.5)*16,a:Math.random()*Math.PI*2,
+        food:false, stamina:P.staminaSec*FOUNDER_MULT, dead:false, disappointed:0});
+    }
+  }
+  function addFood(x,y,amount){ foods.push({x,y,amount,max:amount}); }
+
+  function applyPreset(name){
+    currentPreset=name; clearWorld();
+    const mult=P.richness;
+    // Centre a screen-sized "playfield" in the (always larger) world, so default nest-food
+    // distances match the original tuned difficulty regardless of how big the world is.
+    const ox=(W-scrW)/2, oy=(H-scrH)/2;
+    const pf=(fx,fy)=>[ox+fx*scrW, oy+fy*scrH];
+    if(name==='forage'){
+      nests=[{x:ox+scrW*0.22,y:oy+scrH*0.5,r:NEST_R,delivered:0}];
+      addFood(ox+scrW*0.8,oy+scrH*0.42, BASE_MAX.forage*mult);
+    } else if(name==='barrier'){
+      nests=[{x:ox+scrW*0.16,y:oy+scrH*0.5,r:NEST_R,delivered:0}];
+      addFood(ox+scrW*0.86,oy+scrH*0.5, BASE_MAX.barrier*mult);
+      stampRect(ox+scrW*0.485, oy+scrH*0.10, ox+scrW*0.53, oy+scrH*0.68, 1);
+    } else if(name==='bridge'){
+      nests=[{x:ox+scrW*0.15,y:oy+scrH*0.5,r:NEST_R,delivered:0}];
+      addFood(ox+scrW*0.85,oy+scrH*0.5, BASE_MAX.bridge*mult);
+      stampRect(ox+scrW*0.30, 0, ox+scrW*0.70, H, 1);     // full WORLD height — otherwise the extra margin around
+                                                            // the playfield lets ants simply walk around the wall
+      const rc=Math.max(3*cell, 0.028*scrH);               // tunnel radius, scaled to one screen, not the 3x world
+      carveLine([pf(0.29,0.45),pf(0.5,0.42),pf(0.71,0.47)], rc);
+      carveLine([pf(0.29,0.55),pf(0.40,0.80),pf(0.60,0.83),pf(0.71,0.54)], rc);
+      carveDisc(...pf(0.30,0.5), rc+2*cell); carveDisc(...pf(0.70,0.5), rc+2*cell);
+    } else if(name==='wild'){
+      nests=[{x:ox+scrW*0.5,y:oy+scrH*0.5,r:NEST_R,delivered:0}];      // nest starts centred — terrain grows all around it
+      generateTerrain();
+      const rc0=computeReachable();
+      const SPAWN_RADIUS=420;
+      for(let n=0;n<2;n++){                                 // two sources up front — one drying up shouldn't be fatal
+        let px=null;
+        for(let tries=0;tries<200 && !px;tries++){
+          const ang=Math.random()*Math.PI*2, dist=90+Math.random()*(SPAWN_RADIUS-90);
+          const tx=nests[0].x+Math.cos(ang)*dist, ty=nests[0].y+Math.sin(ang)*dist;
+          const gx=(tx/cell)|0, gy=(ty/cell)|0;
+          if(gx>=0&&gy>=0&&gx<cols&&gy<rows && rc0[gy*cols+gx] && hasClearance(tx,ty,26) && !foods.some(f=>Math.hypot(tx-f.x,ty-f.y)<80)) px=[tx,ty];
+        }
+        if(px) addFood(px[0],px[1], BASE_MAX.forage*mult);
+      }
+    }
+    foodSpawnTimer=0; terrainSpawnTimer=0; reachCache=null;
+    spawnAnts(); syncPresetChips();
+  }
+
+  function sample(arr,x,y){
+    const gx=(x/cell)|0, gy=(y/cell)|0;
+    if(gx<0||gy<0||gx>=cols||gy>=rows) return -1;
+    const i=gi(gx,gy); return wall[i]?-1000:arr[i];
+  }
+  function deposit(arr,x,y,amt){
+    const gx=(x/cell)|0, gy=(y/cell)|0;
+    if(gx<1||gy<1||gx>=cols-1||gy>=rows-1) return;
+    const i=gi(gx,gy); if(wall[i]) return;
+    arr[i]=Math.min(P.cap,arr[i]+amt); const s=amt*0.33;
+    arr[i-1]=Math.min(P.cap,arr[i-1]+s); arr[i+1]=Math.min(P.cap,arr[i+1]+s);
+    arr[i-cols]=Math.min(P.cap,arr[i-cols]+s); arr[i+cols]=Math.min(P.cap,arr[i+cols]+s);
+  }
+  function depositRepel(arr,x,y,amt){                  // amt is negative — a "no-entry" marker, clamped both ways
+    const gx=(x/cell)|0, gy=(y/cell)|0;
+    if(gx<1||gy<1||gx>=cols-1||gy>=rows-1) return;
+    const i=gi(gx,gy); if(wall[i]) return;
+    const cap=P.cap, clamp=v=>Math.max(-cap,Math.min(cap,v));
+    arr[i]=clamp(arr[i]+amt); const s=amt*0.33;
+    arr[i-1]=clamp(arr[i-1]+s); arr[i+1]=clamp(arr[i+1]+s);
+    arr[i-cols]=clamp(arr[i-cols]+s); arr[i+cols]=clamp(arr[i+cols]+s);
+  }
+  function pushRepel(arr,x,y,target){                  // override-style, like stampRepel but a single point:
+    const gx=(x/cell)|0, gy=(y/cell)|0;                 // pushes DOWN to at most `target`, regardless of how
+    if(gx<1||gy<1||gx>=cols-1||gy>=rows-1) return;      // saturated the existing residue is — one pass is decisive
+    const i=gi(gx,gy); if(wall[i]) return;
+    if(arr[i]>target) arr[i]=target;
+    const s=target*0.5;
+    if(arr[i-1]>s) arr[i-1]=s; if(arr[i+1]>s) arr[i+1]=s;
+    if(arr[i-cols]>s) arr[i-cols]=s; if(arr[i+cols]>s) arr[i+cols]=s;
+  }
+  const CASCADE_RATE=0.006;    // tuned empirically for a ~3s Tmax — see conversation notes
+  const DISAPPOINTED_STEPS=260, DISAPPOINTED_TARGET=-70;   // ~350px of retreat marking at full speed
+  const DEAD_DISCOVERY_R2=22*22;   // a searcher recognizes a known-dead source from ~22px, not just point-blank
+  function diffuse(){
+    const k=0.14, ev=P.evap, cr=CASCADE_RATE;
+    for(let y=0;y<rows;y++){ const yo=y*cols;
+      for(let x=0;x<cols;x++){ const i=yo+x;
+        if(wall[i]){ foodTmp[i]=0; homeTmp[i]=0; foodYoung[i]=0; homeYoung[i]=0; foodYoung2[i]=0; homeYoung2[i]=0; continue; }
+        const xm=x>0?i-1:i, xp=x<cols-1?i+1:i, ym=y>0?i-cols:i, yp=y<rows-1?i+cols:i;
+        let fv=(foodP[i]*(1-k)+(foodP[xm]+foodP[xp]+foodP[ym]+foodP[yp])*0.25*k)*ev;
+        let hv=(homeP[i]*(1-k)+(homeP[xm]+homeP[xp]+homeP[ym]+homeP[yp])*0.25*k)*ev;
+        const f1=foodYoung[i]*cr, h1=homeYoung[i]*cr;
+        foodYoung[i]-=f1; homeYoung[i]-=h1;
+        foodYoung2[i]+=f1; homeYoung2[i]+=h1;
+        const f2=foodYoung2[i]*cr, h2=homeYoung2[i]*cr;
+        foodYoung2[i]-=f2; homeYoung2[i]-=h2;
+        fv+=f2; hv+=h2;
+        foodTmp[i]=Math.abs(fv)<0.02?0:fv; homeTmp[i]=Math.abs(hv)<0.02?0:hv;
+      }
+    }
+    let t=foodP; foodP=foodTmp; foodTmp=t;
+    t=homeP; homeP=homeTmp; homeTmp=t;
+  }
+  // A one-zone beacon (used for food): simple radial falloff, peak `val` at source.
+  function beacon(arr,cx,cy,val,rpx){
+    const gx=cx/cell, gy=cy/cell, rc=rpx/cell;
+    const x0=Math.max(0,Math.floor(gx-rc)),x1=Math.min(cols-1,Math.ceil(gx+rc));
+    const y0=Math.max(0,Math.floor(gy-rc)),y1=Math.min(rows-1,Math.ceil(gy+rc));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const dx=x-gx,dy=y-gy; const d=Math.sqrt(dx*dx+dy*dy); if(d>rc)continue;
+      const i=y*cols+x; if(wall[i])continue;
+      const strength=val*(1-d/rc);
+      if(arr[i]<strength) arr[i]=strength;
+    }
+  }
+  // The nest beacon needs a tight CAPTURE CORE that beats a saturated trail passing nearby,
+  // so returning carriers can't overshoot home on a strong through-highway. Inside the core the
+  // scent ramps ABOVE trail saturation (a real dominance zone); outside it, a gentle long-range pull.
+  function nestBeacon(n,reachPx){
+    const gx=n.x/cell, gy=n.y/cell, rc=reachPx/cell;
+    const coreRc=Math.max(2, (n.r*1.3)/cell);       // capture-core radius, scaled to the nest
+    const CORE_PEAK=P.cap*3;                            // well above any trail's P.cap ceiling → nest always wins here
+    const x0=Math.max(0,Math.floor(gx-rc)),x1=Math.min(cols-1,Math.ceil(gx+rc));
+    const y0=Math.max(0,Math.floor(gy-rc)),y1=Math.min(rows-1,Math.ceil(gy+rc));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const dx=x-gx,dy=y-gy; const d=Math.sqrt(dx*dx+dy*dy); if(d>rc)continue;
+      const i=y*cols+x; if(wall[i])continue;
+      let strength;
+      if(d<=coreRc){
+        strength=P.cap + (CORE_PEAK-P.cap)*(1-d/coreRc);   // cap → 3×cap climbing toward the nest
+      } else {
+        strength=P.cap*(1-(d-coreRc)/(rc-coreRc));         // cap → 0 over the outer ring
+      }
+      if(homeP[i]<strength) homeP[i]=strength;
+    }
+  }
+
+  function confidenceFade(stamina){
+    const frac=stamina/P.staminaSec;             // ~1.0 fresh from a success, falling toward 0 near death
+    const start=P.giveUp, end=P.giveUp*0.3;      // zero is reached with a real margin before death, not right at the end
+    if(frac>=start) return 1;
+    if(frac<=end) return 0;
+    return (frac-end)/(start-end);
+  }
+
+  function clearScent(arr,cx,cy,rpx){                  // zero out scent in a radius — used when repel is disabled
+    const gx=cx/cell, gy=cy/cell, rc=rpx/cell;
+    const x0=Math.max(0,Math.floor(gx-rc)),x1=Math.min(cols-1,Math.ceil(gx+rc));
+    const y0=Math.max(0,Math.floor(gy-rc)),y1=Math.min(rows-1,Math.ceil(gy+rc));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const dx=x-gx,dy=y-gy; if(dx*dx+dy*dy>rc*rc)continue;
+      arr[y*cols+x]=0;
+    }
+  }
+  function stampRepel(arr,cx,cy,peakVal,rpx){          // radial negative floor: strongest at center, fading at the rim.
+    const gx=cx/cell, gy=cy/cell, rc=rpx/cell;          // seeds a real negative basin so later visits reinforce it
+    const x0=Math.max(0,Math.floor(gx-rc)),x1=Math.min(cols-1,Math.ceil(gx+rc));   // instead of diluting into a lone
+    const y0=Math.max(0,Math.floor(gy-rc)),y1=Math.min(rows-1,Math.ceil(gy+rc));   // point surrounded by hard zero
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const dx=x-gx,dy=y-gy; const d=Math.sqrt(dx*dx+dy*dy); if(d>rc)continue;
+      const i=y*cols+x; if(wall[i])continue;
+      const target=peakVal*(1-d/rc);
+      if(arr[i]>target) arr[i]=target;
+    }
+  }
+
+  function step(){
+    diffuse();
+
+    if(currentPreset==='wild'){
+      terrainSpawnTimer+=STEP_SEC;
+      if(terrainSpawnTimer>=TERRAIN_INTERVAL){
+        terrainSpawnTimer=0;
+        growTerrain();
+      }
+      foodSpawnTimer+=STEP_SEC;
+      const foodScale=Math.min(FOOD_SCALE_CAP, Math.sqrt(Math.max(1, ants.length/FOOD_INTERVAL_REF)));
+      const effInterval=Math.max(FOOD_INTERVAL_FLOOR, P.foodInterval/foodScale);
+      if(foodSpawnTimer>=effInterval){
+        foodSpawnTimer=0;
+        if(!reachCache) reachCache=computeReachable();
+        const SPAWN_RADIUS=420;      // keep new food within realistic foraging range, not anywhere in the 3x world
+        let placed=false;
+        for(let tries=0;tries<40 && !placed;tries++){
+          const srcNest=nests[(Math.random()*nests.length)|0];
+          const ang=Math.random()*Math.PI*2, dist=90+Math.random()*(SPAWN_RADIUS-90);
+          const tx=srcNest.x+Math.cos(ang)*dist, ty=srcNest.y+Math.sin(ang)*dist;
+          const gx=(tx/cell)|0, gy=(ty/cell)|0;
+          if(gx<0||gy<0||gx>=cols||gy>=rows) continue;
+          if(!reachCache[gy*cols+gx]) continue;                    // must be reachable from some nest
+          if(!hasClearance(tx,ty,26)) continue;                     // and not crammed right against a wall
+          if(nests.some(n=>Math.hypot(tx-n.x,ty-n.y)<70)) continue; // don't spawn right on top of a nest
+          if(foods.some(f=>Math.hypot(tx-f.x,ty-f.y)<50)) continue; // don't stack on an existing source
+          addFood(tx,ty, BASE_MAX.forage*P.richness*foodScale);
+          placed=true;
+        }
+      }
+    }
+
+    for(const n of nests){
+      const reach=Math.min(P.beaconReach, NEST_BEACON_START+(n.delivered||0)*(P.beaconReach-NEST_BEACON_START)/BEACON_GROWTH_DELIVERIES);
+      nestBeacon(n, reach);
+    }
+    for(let f=0;f<foods.length;f++){ const fs=foods[f]; if(fs.amount>0) beacon(foodP, fs.x, fs.y, P.cap*0.6, 9); }
+
+    const SA=P.sensorAngle, SD=P.sensorDist, sp=P.speed;
+    for(let k=0;k<ants.length;k++){
+      const ant=ants[k];
+
+      // mortality: the clock only resets on success
+      ant.stamina -= STEP_SEC;
+      if(ant.stamina<=0){ ant.dead=true; deaths++; sparks.push({x:ant.x,y:ant.y,age:0}); continue; }
+
+      const follow = ant.food ? homeP : foodP;
+      const layYoung = ant.food ? foodYoung : homeYoung;   // regular deposits mature before they're sensed (see below)
+
+      const cA=Math.cos(ant.a),sAg=Math.sin(ant.a);
+      const cx=ant.x+cA*SD, cy=ant.y+sAg*SD;
+      const lA=ant.a-SA, rA=ant.a+SA;
+      const lx=ant.x+Math.cos(lA)*SD, ly=ant.y+Math.sin(lA)*SD;
+      const rx=ant.x+Math.cos(rA)*SD, ry=ant.y+Math.sin(rA)*SD;
+      const c=sample(follow,cx,cy), l=sample(follow,lx,ly), r=sample(follow,rx,ry);
+      const conf=confidenceFade(ant.stamina);   // ~1.0 fresh, fading toward 0 as a searcher runs low without success
+
+      if(c<-500||l<-500||r<-500){ if(l>=r) ant.a-=P.turnSpeed; else ant.a+=P.turnSpeed; }
+      else if(c>=l && c>=r){ /* keep heading */ }
+      else if(l>r){ ant.a-=P.turnSpeed*(0.6+Math.random()*0.6); }
+      else { ant.a+=P.turnSpeed*(0.6+Math.random()*0.6); }
+
+      if(c<0||l<0||r<0){
+        // the branch above can tie "center vs. the better side" and just keep heading, even when the OTHER
+        // side is a clear repellent — that's fine for pure trail-following (a genuine tie means no gradient),
+        // but wrong once negative values exist. Only engages near a no-entry marker; untouched otherwise.
+        ant.a -= (l-r)*0.0015;
+      }
+
+      if(ant.food && P.homingBias>0){
+        // a soft compass toward the NEAREST nest — real scent-following (above) corrects by much more
+        // per step whenever there's an actual gradient, so this only matters when scent is weak or absent
+        const hn=nearestNest(ant.x,ant.y);
+        let diff=Math.atan2(hn.y-ant.y, hn.x-ant.x)-ant.a;
+        diff=((diff+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+        ant.a+=diff*P.homingBias;
+      }
+
+      ant.a += (Math.random()*2-1)*P.wander;
+
+      let nx=ant.x+Math.cos(ant.a)*sp, ny=ant.y+Math.sin(ant.a)*sp;
+      const solidAt=(wx,wy)=>{
+        const gx=(wx/cell)|0, gy=(wy/cell)|0;
+        if(gx<0||gy<0||gx>=cols||gy>=rows) return true;
+        return !!wall[gi(gx,gy)];
+      };
+      if(!solidAt(nx,ny)){ ant.x=nx; ant.y=ny; }
+      else {
+        // Slide along the wall rather than bouncing off it. The old code turned by a random 0.7-1.9 rad
+        // regardless of which way the wall actually ran, so in a narrow gap an ant got flung from one
+        // side straight into the other and rattled instead of threading through. Trying the axis-aligned
+        // components separately follows the wall's real orientation — and matches how ants genuinely move
+        // along surfaces (thigmotaxis) rather than ricocheting off them.
+        const sx=ant.x+Math.cos(ant.a)*sp, sy=ant.y+Math.sin(ant.a)*sp;
+        if(!solidAt(sx, ant.y)){                       // horizontal component is clear — slide that way
+          ant.x=sx;
+          ant.a += (Math.random()-0.5)*0.25;           // keep the heading; a gap ahead still pulls it through
+        } else if(!solidAt(ant.x, sy)){                // vertical component is clear
+          ant.y=sy;
+          ant.a += (Math.random()-0.5)*0.25;
+        } else {
+          ant.a += (Math.random()<0.5?1:-1)*(0.35+Math.random()*0.5);   // genuine dead end: modest turn
+        }
+      }
+      if(ant.x<2){ant.x=2;ant.a=Math.PI-ant.a;} else if(ant.x>W-2){ant.x=W-2;ant.a=Math.PI-ant.a;}
+      if(ant.y<2){ant.y=2;ant.a=-ant.a;} else if(ant.y>H-2){ant.y=H-2;ant.a=-ant.a;}
+
+      deposit(layYoung,ant.x,ant.y, ant.food ? P.deposit : P.deposit*conf);
+
+      if(ant.disappointed>0){
+        pushRepel(foodP,ant.x,ant.y,DISAPPOINTED_TARGET);  // extend the "known dead" zone backward as it retreats
+        ant.disappointed--;
+      }
+
+      if(!ant.food){
+        for(let f=0;f<foods.length;f++){
+          const fs=foods[f];
+          const dx=ant.x-fs.x,dy=ant.y-fs.y; const d2=dx*dx+dy*dy;
+          if(fs.amount<=0){
+            if(d2>=DEAD_DISCOVERY_R2) continue;              // wider radius — no need to walk exactly onto it
+            depositRepel(foodP, ant.x, ant.y, -P.repel);      // this specific spot is a KNOWN falsehood right now
+            ant.disappointed=DISAPPOINTED_STEPS;               // keep marking the retreat, not just this one point
+            continue;
+          }
+          if(d2>=121) continue;                              // active pickup stays tight
+          ant.food=true; fs.amount=Math.max(0,fs.amount-2);
+          ant.stamina=P.staminaSec;                    // success: clock resets
+          ant.a+=Math.PI+(Math.random()-0.5)*0.8;
+          deposit(foodP,ant.x,ant.y,P.deposit*4);
+          if(fs.amount<=0 && !fs.cleared){
+            fs.cleared=true;                            // once only, right when it actually runs dry
+            fs.dieIn=DEAD_LINGER;                        // stays "findable" for a while, then fully gone
+            if(P.repel>0) stampRepel(foodP, fs.x, fs.y, -P.cap, 55);  // a real negative basin, not an isolated dot
+            else clearScent(foodP, fs.x, fs.y, 55);                    // repel disabled — just correct the lie
+          }
+          const hn0=nearestNest(fs.x,fs.y);
+          const fdist=Math.hypot(fs.x-hn0.x, fs.y-hn0.y);
+          if(fdist>foodRangeMax) foodRangeMax=fdist;
+          break;
+        }
+      } else {
+        let arrivedNest=null;
+        for(const n of nests){
+          const dx=ant.x-n.x,dy=ant.y-n.y;
+          if(dx*dx+dy*dy<n.r*n.r){ arrivedNest=n; break; }
+        }
+        if(arrivedNest){
+          ant.food=false; ant.stamina=P.staminaSec;      // success: clock resets
+          delivered++; stock+=STOCK_PER_DELIVERY;
+          arrivedNest.delivered=(arrivedNest.delivered||0)+1;
+          ant.a+=Math.PI+(Math.random()-0.5)*0.8;
+          deposit(homeP,ant.x,ant.y,P.deposit*4);
+        }
+      }
+    }
+
+    ants = ants.filter(a=>!a.dead);
+    for(const fs of foods){ if(fs.cleared) fs.dieIn-=STEP_SEC; }
+    foods = foods.filter(f=>!f.cleared || f.dieIn>0);   // lingers findable for a while, then fully disappears
+                                             // re-triggering repellent on every future passerby
+    if(ants.length>maxPopSeen) maxPopSeen=ants.length;
+
+    while(stock>=P.birthCost){
+      stock-=P.birthCost; births++;
+      const bn=nests[(Math.random()*nests.length)|0];
+      ants.push({x:bn.x+(Math.random()-0.5)*16,y:bn.y+(Math.random()-0.5)*16,a:Math.random()*Math.PI*2,
+        food:false, stamina:P.staminaSec, dead:false, disappointed:0});
+    }
+    if(ants.length>maxPopSeen) maxPopSeen=ants.length;
+    stock = Math.max(0, stock - ants.length*UPKEEP*STEP_SEC);
+  }
+
+  function hash2(x,y){                          // deterministic per-pixel pseudo-random, no periodicity
+    let h=x*374761393+y*668265263;
+    h=(h^(h>>13))*1274126177;
+    return ((h^(h>>16))>>>0)/4294967295;
+  }
+  function valueNoise2(x,y){                    // smooth interpolation of the hash lattice
+    const x0=Math.floor(x), y0=Math.floor(y), tx=x-x0, ty=y-y0;
+    const sx=tx*tx*(3-2*tx), sy=ty*ty*(3-2*ty);
+    const a=hash2(x0,y0), b=hash2(x0+1,y0), c=hash2(x0,y0+1), d2=hash2(x0+1,y0+1);
+    return (a*(1-sx)+b*sx)*(1-sy) + (c*(1-sx)+d2*sx)*sy;
+  }
+  function sampleEdge(fx,fy){                   // bilinear sample of the coverage field, in grid coords
+    const x0=Math.floor(fx), y0=Math.floor(fy);
+    const tx=fx-x0, ty=fy-y0;
+    const at=(x,y)=>{ if(x<0||y<0||x>=cols||y>=rows) return 0; return wallEdge[y*cols+x]; };
+    const a=at(x0,y0), b=at(x0+1,y0), c=at(x0,y0+1), d=at(x0+1,y0+1);
+    return (a*(1-tx)+b*tx)*(1-ty) + (c*(1-tx)+d*tx)*ty;
+  }
+  function bakeTerrain(){
+    if(!terrainCtx) return;
+    const tw=terrainCv.width, th=terrainCv.height;
+    const img=terrainCtx.createImageData(tw,th);
+    const d=img.data;
+    for(let py=0;py<th;py++){
+      for(let px=0;px<tw;px++){
+        const fx=px/terrainScale, fy=py/terrainScale;
+        const wx=fx*cell, wy=fy*cell;
+        // Evaluate the noise at THIS pixel rather than interpolating the coarse grid. The grid stores
+        // coverage per ~7px cell, so its edge band is already several cells wide before rendering sees
+        // it — no downstream sharpening recovers that. Re-evaluating gives a true per-pixel boundary.
+        let sharp, cov;
+        if(terrainNoise && !manualEdits){
+          const T=terrainNoise;
+          const wu=(fbm(T.warpA, wx, wy, 300)-0.5)*170;
+          const wv=(fbm(T.warpB, wx, wy, 300)-0.5)*170;
+          let v=fbm(T.lattices, wx+wu, wy+wv, 165);
+          let nearest=Infinity;
+          for(const n of nests){ const dd=Math.hypot(wx-n.x, wy-n.y); if(dd<nearest) nearest=dd; }
+          if(nearest<T.NEST_CLEAR) { d[(py*tw+px)*4+3]=0; continue; }
+          if(nearest<T.NEST_CLEAR*2.2) v-=0.30*(1-(nearest-T.NEST_CLEAR)/(T.NEST_CLEAR*1.2));
+          // also honour anything carved/painted since generation (channels, nest clearing, user edits)
+          const gridCov=sampleEdge(fx,fy);
+          if(gridCov<=0.004){ d[(py*tw+px)*4+3]=0; continue; }
+          const dv=v-T.THRESH;
+          sharp=Math.max(0,Math.min(1, 0.5+dv/0.010));   // tight band in noise units = crisp everywhere
+          sharp=Math.min(sharp, Math.min(1,gridCov*2.2));
+          cov=sharp;
+          if(sharp<=0.004){ d[(py*tw+px)*4+3]=0; continue; }
+        } else {
+          cov=sampleEdge(fx,fy);
+          if(cov<=0.004){ d[(py*tw+px)*4+3]=0; continue; }
+          const gxa=sampleEdge(fx+0.5,fy)-sampleEdge(fx-0.5,fy);
+          const gya=sampleEdge(fx,fy+0.5)-sampleEdge(fx,fy-0.5);
+          const gpp=Math.hypot(gxa,gya)/terrainScale;
+          sharp=gpp>1e-6 ? Math.max(0,Math.min(1, 0.5+(cov-0.5)/(gpp*1.2*terrainScale))) : (cov>0.5?1:0);
+        }
+        const gx0=sampleEdge(fx+0.5,fy)-sampleEdge(fx-0.5,fy);
+        const gy0=sampleEdge(fx,fy+0.5)-sampleEdge(fx,fy-0.5);
+        const gradPerPx=Math.hypot(gx0,gy0)/terrainScale;
+        // fine surface grain: real hash noise at two scales, no periodic structure
+        const n=valueNoise2(px*0.16,py*0.16)*0.6 + valueNoise2(px*0.55,py*0.55)*0.4;
+        const grain=(n-0.5)*22;
+        // rim shading, keyed to the SHARP value so it darkens only in the narrow real edge band,
+        // rather than smearing across however wide the raw noise band happens to be here
+        const lift=(sharp-1)*20;
+        // directional light from the already-computed gradient — slopes facing up-left catch light
+        const shade=(-gx0-gy0)*26/Math.max(0.02,gradPerPx*terrainScale+0.35);
+        const j=(py*tw+px)*4;
+        d[j]  =Math.max(0,Math.min(255, ROCK[0]+grain+lift+shade));
+        d[j+1]=Math.max(0,Math.min(255, ROCK[1]+grain+lift+shade));
+        d[j+2]=Math.max(0,Math.min(255, ROCK[2]+grain+lift+shade*0.8));
+        d[j+3]=Math.round(255*sharp);      // gradient-normalized: consistent edge width everywhere
+      }
+    }
+    terrainCtx.putImageData(img,0,0);
+    terrainDirty=false;
+  }
+
+  function render(){
+    const d=fieldImg.data, cap=P.cap, show=P.showPhero;
+    for(let i=0;i<foodP.length;i++){ const j=i*4;
+      let r=SOIL[0],g=SOIL[1],b=SOIL[2];
+      if(show){
+        const fRaw=foodP[i];
+        const f=Math.sqrt(Math.max(0,Math.min(1,fRaw/cap)));       // positive food-scent
+        const neg=Math.sqrt(Math.max(0,Math.min(1,-fRaw/cap)));    // negative "no-entry" signal — never both at once
+        const h=Math.sqrt(Math.max(0,Math.min(1,homeP[i]/cap)));
+        r=Math.min(255,r+f*F_D[0]+h*H_D[0]+neg*NEG_D[0]); g=Math.min(255,g+f*F_D[1]+h*H_D[1]+neg*NEG_D[1]); b=Math.min(255,b+f*F_D[2]+h*H_D[2]+neg*NEG_D[2]);
+      }
+      d[j]=r; d[j+1]=g; d[j+2]=b; d[j+3]=255;
+    }
+    fieldCtx.putImageData(fieldImg,0,0);
+
+    // camera transform: scale by camScale, pan by camX/camY (world -> screen)
+    ctx.save();
+    ctx.scale(camScale,camScale);
+    ctx.translate(-camX,-camY);
+
+    ctx.imageSmoothingEnabled=true; ctx.filter='blur(2.5px)'; ctx.drawImage(field,0,0,W,H); ctx.filter='none';
+    if(terrainDirty) bakeTerrain();
+    if(terrainCv) ctx.drawImage(terrainCv,0,0,W,H);     // sharp, textured terrain over the soft scent field
+
+    for(const fs of foods){
+      const t=Math.max(0,fs.amount/fs.max), rad=6+Math.sqrt(Math.max(fs.amount,0))*0.16;
+      const g=ctx.createRadialGradient(fs.x,fs.y,1,fs.x,fs.y,rad*1.8);
+      g.addColorStop(0,`rgba(255,122,107,${0.5*t+0.12})`); g.addColorStop(1,'rgba(255,122,107,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(fs.x,fs.y,rad*1.8,0,7); ctx.fill();
+      ctx.fillStyle=fs.amount>0?'rgba(255,138,120,0.9)':'rgba(150,110,100,0.4)';
+      const n=Math.min(14,4+Math.round(fs.amount/500));
+      for(let i=0;i<n;i++){const an=i/n*6.283,rr=rad*(0.3+0.6*((i*37)%10)/10);ctx.beginPath();ctx.arc(fs.x+Math.cos(an)*rr,fs.y+Math.sin(an)*rr,1.5,0,7);ctx.fill();}
+    }
+
+    for(const n of nests){
+      const reach=Math.min(P.beaconReach, NEST_BEACON_START+(n.delivered||0)*(P.beaconReach-NEST_BEACON_START)/BEACON_GROWTH_DELIVERIES);
+      const glowR=Math.max(n.r*1.3, reach*1.1);   // the glow now IS the beacon reach, not a fixed decoration —
+      const ng=ctx.createRadialGradient(n.x,n.y,1,n.x,n.y,glowR);   // it visibly grows as the nest earns range
+      ng.addColorStop(0,'rgba(224,152,63,0.42)'); ng.addColorStop(1,'rgba(224,152,63,0)');
+      ctx.fillStyle=ng; ctx.beginPath(); ctx.arc(n.x,n.y,glowR,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(224,152,63,0.85)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,7); ctx.stroke();
+      ctx.fillStyle='rgba(42,28,14,0.9)'; ctx.beginPath(); ctx.arc(n.x,n.y,n.r*0.55,0,7); ctx.fill();
+    }
+
+    const dotK=1/Math.max(0.5,camScale);              // counter-scale markers so they stay visible when zoomed out
+    for(let k=0;k<ants.length;k++){
+      const a=ants[k];
+      const frac=Math.min(1, a.stamina/P.staminaSec);
+      const warn=frac<0.3;
+      if(a.food){
+        ctx.fillStyle = warn ? 'rgba(206,140,150,0.95)' : '#f7c95a';
+      } else {
+        const alpha=(0.22+0.7*confidenceFade(a.stamina)).toFixed(2);   // the exact value scaling this ant's real deposit
+        ctx.fillStyle = warn ? `rgba(206,140,150,${alpha})` : `rgba(239,230,210,${alpha})`;
+      }
+      ctx.beginPath(); ctx.arc(a.x,a.y, (a.food?1.9:1.5)*dotK, 0,7); ctx.fill();
+    }
+
+    for(let i=sparks.length-1;i>=0;i--){
+      const s=sparks[i]; s.age+=1; const t=s.age/28;
+      if(t>=1){ sparks.splice(i,1); continue; }
+      ctx.beginPath(); ctx.arc(s.x,s.y,2+t*5,0,7);
+      ctx.strokeStyle=`rgba(200,150,160,${(1-t)*0.55})`; ctx.lineWidth=1; ctx.stroke();
+    }
+
+    if(brush.show){
+      if(P.tool==='inspect'){ ctx.strokeStyle='rgba(232,217,168,0.8)'; ctx.lineWidth=1.5/camScale; ctx.beginPath(); ctx.arc(brush.x,brush.y,4/camScale,0,7); ctx.stroke(); }
+      else if(P.tool==='erase'){
+        // two rings: the inner one clears terrain/scent, the outer is the reach for removing food and nests
+        const HIT=Math.max(52, 52/Math.max(0.25,camScale));
+        ctx.strokeStyle='rgba(242,177,52,0.5)'; ctx.lineWidth=1.2/camScale;
+        ctx.beginPath(); ctx.arc(brush.x,brush.y,brushR(),0,7); ctx.stroke();
+        ctx.strokeStyle='rgba(206,140,150,0.55)'; ctx.setLineDash([6/camScale,5/camScale]);
+        ctx.beginPath(); ctx.arc(brush.x,brush.y,HIT,0,7); ctx.stroke(); ctx.setLineDash([]);
+      }
+      else { ctx.strokeStyle='rgba(242,177,52,0.5)'; ctx.lineWidth=1.2/camScale; ctx.beginPath(); ctx.arc(brush.x,brush.y,brushR(),0,7); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+
+  const popEl=document.getElementById('pop'),bdEl=document.getElementById('bd'),stateEl=document.getElementById('state'),tinyEl=document.getElementById('tiny'),tiny2El=document.getElementById('tiny2');
+  const stockBar=document.getElementById('stockBar'),stockLab=document.getElementById('stockLab');
+  function updateStats(now){
+    popHist.push([now,ants.length]); bHist.push([now,births]); dHist.push([now,deaths]);
+    while(popHist.length&&now-popHist[0][0]>12000) popHist.shift();
+    while(bHist.length&&now-bHist[0][0]>8000) bHist.shift();
+    while(dHist.length&&now-dHist[0][0]>8000) dHist.shift();
+
+    let bRate=0,dRate=0,growth=0;
+    if(bHist.length>1){const f=bHist[0],span=(now-f[0])/1000; if(span>0.5) bRate=(births-f[1])/span*60;}
+    if(dHist.length>1){const f=dHist[0],span=(now-f[0])/1000; if(span>0.5) dRate=(deaths-f[1])/span*60;}
+    if(popHist.length>1){const f=popHist[0],span=(now-f[0])/1000; if(span>1) growth=(ants.length-f[1])/span*60;}
+
+    popEl.textContent=ants.length;
+    bdEl.textContent=`+${Math.round(bRate)}/min born · −${Math.round(dRate)}/min died`;
+
+    let st;
+    if(ants.length===0) st='colony collapsed';
+    else if(delivered<3) st='colony founding';
+    else if(growth>15) st='thriving';
+    else if(growth>2) st='growing';
+    else if(growth>-2) st='stable';
+    else if(growth>-15) st='declining';
+    else st='collapsing';
+    stateEl.textContent=st;
+    tinyEl.textContent=delivered.toLocaleString()+' delivered all-time';
+    tiny2El.textContent='peak '+maxPopSeen+' · farthest '+Math.round(foodRangeMax)+'px';
+
+    const frac=Math.min(1, stock/P.birthCost);
+    stockBar.style.width=(frac*100).toFixed(0)+'%';
+    stockLab.textContent=Math.round(stock)+' / '+P.birthCost+' reserve';
+  }
+
+  let last=performance.now(), acc=0;
+  const MAX_CATCHUP=0.25;              // cap how much real time we'll catch up in one go (tab backgrounded, etc.)
+  function loop(now){
+    let dt=(now-last)/1000; last=now;                  // real elapsed seconds since the last callback
+    if(dt>MAX_CATCHUP) dt=MAX_CATCHUP;
+    if(!P.paused){
+      acc+=dt;
+      while(acc>=STEP_SEC){ step(); acc-=STEP_SEC; }   // always exactly STEP_SEC of sim time per step, regardless of
+    }                                                    // whether the display refreshes at 60Hz, 90Hz or 120Hz
+    render(); updateStats(now);
+    requestAnimationFrame(loop);
+  }
+
+  const brush={x:0,y:0,show:false,down:false};
+  let grabbedNest=null;   // which nest the current drag is moving (Move nest tool)
+  function brushR(){ return P.tool==='wall'?16:P.tool==='erase'?26:12; }
+  function applyTool(x,y){
+    if(P.tool==='inspect'){ doInspect(x,y); return; }
+    if(P.tool==='nest'){
+      if(!grabbedNest){                                  // first contact: grab whichever nest is nearest
+        let best=null, bestD=Infinity;
+        for(const n of nests){ const d=Math.hypot(x-n.x,y-n.y); if(d<bestD){ bestD=d; best=n; } }
+        grabbedNest=best;
+      }
+      if(grabbedNest){ grabbedNest.x=x; grabbedNest.y=y; carveDisc(x,y,60); reachCache=null; }
+      return;
+    }
+    if(P.tool==='nest2'){
+      nests.push({x,y,r:NEST_R,delivered:0});
+      carveDisc(x,y,60);
+      reachCache=null;
+      return;
+    }
+    const r=brushR(),gx=(x/cell)|0,gy=(y/cell)|0,rc=Math.ceil(r/cell);
+    if(P.tool==='wall'||P.tool==='erase') reachCache=null;   // terrain changed — the cached reachability is stale
+    for(let dy=-rc;dy<=rc;dy++)for(let dx=-rc;dx<=rc;dx++){ const nx=gx+dx,ny=gy+dy; if(nx<0||ny<0||nx>=cols||ny>=rows)continue; if(dx*dx+dy*dy>rc*rc)continue; const i=gi(nx,ny);
+      if(P.tool==='wall'){ wall[i]=1; wallEdge[i]=1; foodP[i]=0; homeP[i]=0; } else if(P.tool==='erase'){ wall[i]=0; wallEdge[i]=0; foodP[i]=0; homeP[i]=0; } }
+    if(P.tool==='wall'||P.tool==='erase'){ terrainDirty=true; manualEdits=true; }
+    if(P.tool==='erase'){
+      // hit radius in WORLD px, but grown when zoomed out so it stays a usable physical size on screen —
+      // a fixed world radius becomes a near-untappable few screen px at low zoom
+      const HIT=Math.max(52, 52/Math.max(0.25,camScale));
+      const doomed=foods.filter(f=>{const dx=f.x-x,dy=f.y-y; return dx*dx+dy*dy<=HIT*HIT;});
+      for(const f of doomed){
+        // still leave the no-entry mark, so ants that were heading here learn it's gone
+        if(P.repel>0) stampRepel(foodP, f.x, f.y, -P.cap, 55);
+        else clearScent(foodP, f.x, f.y, 55);
+      }
+      // ...but remove it NOW. The 15s lingering window is for sources that run dry on their own, where
+      // searchers need time to find the empty spot; an explicit erase is a command and should be instant.
+      if(doomed.length) foods=foods.filter(f=>!doomed.includes(f));
+      if(nests.length>1){                                  // erase can remove a nest too, but never the last one
+        for(let i=nests.length-1;i>=0;i--){
+          const dx=nests[i].x-x, dy=nests[i].y-y;
+          if(dx*dx+dy*dy<=HIT*HIT && nests.length>1){ nests.splice(i,1); reachCache=null; }
+        }
+      }
+    }
+  }
+  function place(x,y){ if(P.tool==='food'){ addFood(x,y,5000*P.richness); return; } applyTool(x,y); }
+
+  // ---- TOUCH: 1 finger draws, 2 fingers pan + pinch (never draws) ----
+  let touchMode='none';            // 'none' | 'pending' | 'draw' | 'gesture'
+  let panMid=null, pinchDist=0, pendingPt=null, pendingTimer=null;
+  function dist2f(a,b){ const dx=a.clientX-b.clientX, dy=a.clientY-b.clientY; return Math.hypot(dx,dy); }
+  function cancelPending(){ if(pendingTimer){ clearTimeout(pendingTimer); pendingTimer=null; } pendingPt=null; }
+  function commitPending(){                              // no second finger arrived → it's a real single-finger draw
+    if(touchMode!=='pending'||!pendingPt) return;
+    touchMode='draw';
+    brush.down=true; brush.x=pendingPt.x; brush.y=pendingPt.y; brush.show=true;
+    place(pendingPt.x,pendingPt.y);
+    pendingTimer=null;
+  }
+  canvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(e.touches.length>=2){
+      // second finger: abandon any pending single-finger dab (nothing has been drawn yet) and start the gesture
+      cancelPending(); touchMode='gesture'; brush.down=false; brush.show=false;
+      const t0=e.touches[0],t1=e.touches[1];
+      panMid={x:(t0.clientX+t1.clientX)/2, y:(t0.clientY+t1.clientY)/2};
+      pinchDist=dist2f(t0,t1);
+    } else if(e.touches.length===1 && touchMode==='none'){
+      // don't act yet — wait a beat to see if a second finger joins (which would make it a gesture)
+      touchMode='pending';
+      pendingPt=toWorld(e.touches[0].clientX,e.touches[0].clientY);
+      pendingTimer=setTimeout(commitPending,90);
+    }
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(touchMode==='pending'){ commitPending(); }        // finger moved before a 2nd arrived → it's a drag-draw
+    if(touchMode==='gesture' && e.touches.length>=2){
+      const t0=e.touches[0],t1=e.touches[1];
+      const mx=(t0.clientX+t1.clientX)/2, my=(t0.clientY+t1.clientY)/2;
+      panBy(mx-panMid.x, my-panMid.y);
+      const nd=dist2f(t0,t1);
+      if(pinchDist>0 && nd>0) zoomAround(nd/pinchDist, mx, my);
+      panMid={x:mx,y:my}; pinchDist=nd;
+    } else if(touchMode==='draw' && e.touches.length===1){
+      const p=toWorld(e.touches[0].clientX,e.touches[0].clientY);
+      brush.x=p.x; brush.y=p.y; brush.show=true;
+      if(P.tool!=='food') applyTool(p.x,p.y);            // food only on the initial tap, not on drag
+    }
+  },{passive:false});
+  function endTouch(e){
+    if(touchMode==='pending'){ commitPending(); }        // quick tap that ended before the timer → still draw it
+    if(e.touches.length===0){ touchMode='none'; brush.down=false; brush.show=false; panMid=null; grabbedNest=null; cancelPending(); }
+  }
+  canvas.addEventListener('touchend',endTouch,{passive:false});
+  canvas.addEventListener('touchcancel',()=>{ touchMode='none'; brush.down=false; brush.show=false; panMid=null; grabbedNest=null; cancelPending(); },{passive:false});
+
+  // ---- MOUSE (pointer events, mouse only — touch is handled above) ----
+  canvas.addEventListener('pointerdown',e=>{ if(e.pointerType!=='mouse')return; const p=toWorld(e.clientX,e.clientY); brush.down=true; brush.x=p.x;brush.y=p.y;brush.show=true; place(p.x,p.y); });
+  canvas.addEventListener('pointermove',e=>{ if(e.pointerType!=='mouse')return; const p=toWorld(e.clientX,e.clientY); brush.x=p.x;brush.y=p.y;brush.show=true; if(brush.down&&P.tool!=='food') applyTool(p.x,p.y); });
+  canvas.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'){ brush.down=false; grabbedNest=null; } });
+  canvas.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse'){brush.down=false;brush.show=false;grabbedNest=null;} });
+  // mouse wheel = zoom on desktop
+  canvas.addEventListener('wheel',e=>{ e.preventDefault(); zoomAround(e.deltaY<0?1.1:1/1.1, e.clientX, e.clientY); },{passive:false});
+
+  const tools=document.getElementById('tools');
+  tools.querySelectorAll('.tool').forEach(t=>t.addEventListener('click',()=>{
+    tools.querySelectorAll('.tool').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+    P.tool=t.getAttribute('data-tool'); canvas.style.cursor=(P.tool==='nest'||P.tool==='nest2')?'move':'crosshair';
+    if(P.tool!=='inspect') inspectBox.classList.remove('show');
+  }));
+  const presets=document.getElementById('presets');
+  presets.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>applyPreset(c.getAttribute('data-preset'))));
+  function syncPresetChips(){ presets.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.getAttribute('data-preset')===currentPreset)); }
+
+  const evapSlider=document.getElementById('evapSlider'),evapVal=document.getElementById('evapVal');
+  function setEvap(){ const s=+evapSlider.value/100; P.evap=0.9992-s*(0.9992-0.955); evapVal.textContent=s<0.22?'slow':s<0.5?'medium':s<0.78?'fast':'very fast'; }
+  evapSlider.addEventListener('input',setEvap);
+
+  const wanderSlider=document.getElementById('wanderSlider'),wanderVal=document.getElementById('wanderVal');
+  wanderSlider.addEventListener('input',()=>{ P.wander=+wanderSlider.value/100; wanderVal.textContent=P.wander.toFixed(2); });
+
+  const speedSlider=document.getElementById('speedSlider'),speedVal=document.getElementById('speedVal');
+  speedSlider.addEventListener('input',()=>{ P.speed=+speedSlider.value; speedVal.textContent=speedSlider.value; });
+
+  const senseSlider=document.getElementById('senseSlider'),senseVal=document.getElementById('senseVal');
+  senseSlider.addEventListener('input',()=>{ P.sensorDist=+senseSlider.value; senseVal.textContent=senseSlider.value; });
+
+  const beaconSlider=document.getElementById('beaconSlider'),beaconVal=document.getElementById('beaconVal');
+  beaconSlider.addEventListener('input',()=>{ P.beaconReach=+beaconSlider.value; beaconVal.textContent=beaconSlider.value+'px'; });
+
+  const homingSlider=document.getElementById('homingSlider'),homingVal=document.getElementById('homingVal');
+  homingSlider.addEventListener('input',()=>{ P.homingBias=+homingSlider.value; homingVal.textContent=homingSlider.value; });
+
+  const repelSlider=document.getElementById('repelSlider'),repelVal=document.getElementById('repelVal');
+  repelSlider.addEventListener('input',()=>{ P.repel=+repelSlider.value; repelVal.textContent=repelSlider.value; });
+
+  const foodIntSlider=document.getElementById('foodIntSlider'),foodIntVal=document.getElementById('foodIntVal');
+  foodIntSlider.addEventListener('input',()=>{ P.foodInterval=+foodIntSlider.value; foodIntVal.textContent=foodIntSlider.value+'s'; });
+
+  const staminaSlider=document.getElementById('staminaSlider'),staminaVal=document.getElementById('staminaVal');
+  staminaSlider.addEventListener('input',()=>{ P.staminaSec=+staminaSlider.value; staminaVal.textContent=P.staminaSec+'s'; });
+
+  const giveUpSlider=document.getElementById('giveUpSlider'),giveUpVal=document.getElementById('giveUpVal');
+  giveUpSlider.addEventListener('input',()=>{ P.giveUp=+giveUpSlider.value/100; giveUpVal.textContent=giveUpSlider.value+'%'; });
+
+  const birthCostSlider=document.getElementById('birthCostSlider'),birthVal=document.getElementById('birthVal');
+  birthCostSlider.addEventListener('input',()=>{ P.birthCost=+birthCostSlider.value; birthVal.textContent=P.birthCost; });
+
+  const richnessSlider=document.getElementById('richnessSlider'),richnessVal=document.getElementById('richnessVal');
+  richnessSlider.addEventListener('input',()=>{ P.richness=+richnessSlider.value/100; richnessVal.textContent=P.richness.toFixed(2)+'×'; });
+
+  const startPopSlider=document.getElementById('startPopSlider'),startPopVal=document.getElementById('startPopVal');
+  startPopSlider.addEventListener('input',()=>{ P.startPop=+startPopSlider.value; startPopVal.textContent=P.startPop; });
+
+  document.getElementById('pheroSw').addEventListener('click',function(){ P.showPhero=!P.showPhero; this.classList.toggle('on',P.showPhero); });
+
+  const zoomLvl=document.getElementById('zoomLvl'),zoomOutBtn=document.getElementById('zoomOut'),zoomInBtn=document.getElementById('zoomIn');
+  function syncZoomLabel(){
+    // label shows magnification relative to fully-zoomed-out (whole world visible)
+    zoomLvl.textContent=(camScale/CAM_MIN).toFixed(1).replace(/\.0$/,'')+'×';
+    zoomOutBtn.disabled = camScale<=CAM_MIN+1e-6;
+    zoomInBtn.disabled = camScale>=CAM_MAX-1e-6;
+  }
+  function applyZoom(){ updateCamera(); syncZoomLabel(); }   // used on load/resize: centre on nest at current camScale
+  zoomOutBtn.addEventListener('click',()=>zoomAround(1/1.4, scrW/2, scrH/2));
+  zoomInBtn.addEventListener('click',()=>zoomAround(1.4, scrW/2, scrH/2));
+
+  const pauseBtn=document.getElementById('pauseBtn');
+  pauseBtn.addEventListener('click',()=>{ P.paused=!P.paused; pauseBtn.textContent=P.paused?'Play':'Pause'; });
+  document.getElementById('resetBtn').addEventListener('click',()=>applyPreset(currentPreset));
+
+  const panel=document.getElementById('panel'),collapseBtn=document.getElementById('collapseBtn');
+  const zoombar=document.getElementById('zoombar');
+  function repositionZoombar(){
+    if(window.innerWidth>720){ zoombar.style.bottom=''; return; }   // desktop: panel is on the right, no overlap risk
+    const rect=panel.getBoundingClientRect();
+    zoombar.style.bottom=Math.max(10, window.innerHeight-rect.top+10)+'px';
+  }
+  collapseBtn.addEventListener('click',()=>{
+    const f=panel.classList.toggle('folded'); collapseBtn.textContent=f?'▴':'▾';
+    requestAnimationFrame(repositionZoombar);   // wait a frame so the panel's new height has actually applied
+  });
+
+  window.addEventListener('resize',()=>{
+    clearTimeout(window.__rt);
+    window.__rt=setTimeout(()=>{
+      // an on-screen keyboard resizes the viewport height without touching width —
+      // treat that as a keyboard opening, not a real resize, and leave the colony running
+      if(Math.abs(window.innerWidth-scrW) < 40) return;
+      resize();
+    },180);
+  });
+  setEvap();
+  resize();
+  applyZoom();                                       // start zoomed in (camScale=1, 1:1), centred on the nest
+  requestAnimationFrame(repositionZoombar);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

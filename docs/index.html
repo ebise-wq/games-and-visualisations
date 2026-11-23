@@ -13,6 +13,15 @@
 <script src="limit.js" defer></script>
 <title>Siebe's Arcade</title>
 <meta name="description" content="Small browser games.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Siebe's Arcade">
+<meta property="og:title" content="Siebe's Arcade">
+<meta property="og:description" content="Small browser games.">
+<meta property="og:url" content="https://ebise-wq.github.io/games-and-visualisations/">
+<meta property="og:image" content="https://ebise-wq.github.io/games-and-visualisations/img/og-1.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237fb8d8'/%3E%3Cstop offset='1' stop-color='%23f0a57e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='50,6 88,28 88,72 50,94 12,72 12,28' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -56,9 +65,22 @@
   #arcade-status:not(:empty)::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;
     background:var(--teal);margin-right:10px;vertical-align:1px}
   body.arcade-done #arcade-status::before{background:var(--sunset)}
-  body.arcade-done .card{opacity:.45;filter:saturate(.5)}
-  body.arcade-done .card:hover{transform:none;box-shadow:none}
+  body.arcade-done .card.limited{opacity:.45;filter:saturate(.5)}
+  body.arcade-done .card.limited:hover{transform:none;box-shadow:none}
   footer{margin-top:44px;color:rgba(154,166,194,.45);font-size:13px;text-align:center}
+  @media (max-width:640px){
+    main{padding-top:36px}
+    header{margin-bottom:24px}
+    .grid{gap:14px}
+    .card{flex-direction:row;border-radius:16px;height:150px}
+    .thumb{flex:none;width:46%;height:100%;aspect-ratio:auto}
+    .body{padding:12px 14px;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px}
+    .body div{flex:none}
+    h2{font-size:19px}
+    .tag{font-size:15px}
+    .play{width:38px;height:38px}
+    .play svg{width:15px;height:15px}
+  }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -70,24 +92,34 @@
   </header>
 
   <section class="grid">
-    <a class="card" href="InfluenceFloodGlobe.html" style="--glow:var(--ocean)">
-      <div class="thumb"><img src="img/globe.jpg" alt="A sphere of coloured hexagons" loading="lazy"></div>
+    <a class="card limited" href="InfluenceFloodGlobe.html" style="--glow:var(--ocean)">
+      <div class="thumb"><img src="img/globe-2.jpg" alt="A sphere of coloured hexagons" loading="lazy"></div>
       <div class="body"><div><h2>Influence Flood: Globe</h2><p class="tag">Flood the world</p></div>
         <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
     </a>
-    <a class="card" href="InfluenceFloodRace.html" style="--glow:var(--sunset)">
-      <div class="thumb"><img src="img/race.jpg" alt="A hexagon board of coloured tiles" loading="lazy"></div>
+    <a class="card limited" href="InfluenceFloodRace.html" style="--glow:var(--sunset)">
+      <div class="thumb"><img src="img/race-2.jpg" alt="A hexagon board of coloured tiles" loading="lazy"></div>
       <div class="body"><div><h2>Influence Flood: Race</h2><p class="tag">Paint, then flood</p></div>
         <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
     </a>
-    <a class="card" href="MazeRunner.html" style="--glow:var(--rose)">
-      <div class="thumb"><img src="img/maze.jpg" alt="First-person view down a neon maze corridor" loading="lazy"></div>
+    <a class="card limited" href="MazeRunner.html" style="--glow:var(--rose)">
+      <div class="thumb"><img src="img/maze-2.jpg" alt="First-person view down a neon maze corridor" loading="lazy"></div>
       <div class="body"><div><h2>Maze Runner FPV</h2><p class="tag">Eat every pellet</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
+    <a class="card" href="BoomBust.html" style="--glow:var(--sand)">
+      <div class="thumb"><img src="img/boombust-2.jpg" alt="Ants on a glowing pheromone trail between nest and food" loading="lazy"></div>
+      <div class="body"><div><h2>Boom &amp; Bust</h2><p class="tag">Keep the colony alive</p></div>
+        <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
+    </a>
+    <a class="card" href="TruthOrDrink.html" style="--glow:var(--teal)">
+      <div class="thumb"><img src="img/truth-2.jpg" alt="A revealed question card" loading="lazy"></div>
+      <div class="body"><div><h2>Truth or Dare or Drink</h2><p class="tag">Answer, dare, or drink</p></div>
         <span class="play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg></span></div>
     </a>
   </section>
 
-  <footer>v5</footer>
+  <footer>v10</footer>
 </main>
 </body>
 </html>

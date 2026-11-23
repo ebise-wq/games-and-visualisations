@@ -4,7 +4,7 @@ Play in the browser: https://ebise-wq.github.io/games-and-visualisations/
 
 - `src/` holds the original React (`.jsx`) source for each game.
 - `docs/` holds the built, self-contained HTML pages that GitHub Pages serves.
-- `docs/MazeRunner.html` is a plain HTML game (three.js), edited directly with no build step.
+- `docs/MazeRunner.html` (three.js) and `docs/BoomBust.html` are plain HTML pages, edited directly with no build step.
 
 ## Rebuilding after editing a game
 
@@ -26,6 +26,7 @@ The arcade is an installable web app (`docs/manifest.json`, `docs/sw.js`, `docs/
 The service worker keeps a copy of every page for offline play.
 **After changing any page, bump `VERSION` in `docs/sw.js`**, or installed copies keep the old files.
 A new game also needs adding to the `CORE` list in `docs/sw.js`, plus the same head tags as the other pages.
+When replacing a thumbnail, save it under a new file name (e.g. `race-3.jpg`), or browsers keep showing the old one.
 
 ## Daily game limit
 
