@@ -4,7 +4,7 @@ Play in the browser: https://ebise-wq.github.io/games-and-visualisations/
 
 - `src/` holds the original React (`.jsx`) source for each game.
 - `docs/` holds the built, self-contained HTML pages that GitHub Pages serves.
-- `docs/MazeRunner.html` is a plain HTML game (three.js), edited directly with no build step.
+- `docs/MazeRunner.html` (three.js) and `docs/BoomBust.html` are plain HTML pages, edited directly with no build step.
 
 ## Rebuilding after editing a game
 
