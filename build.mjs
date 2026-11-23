@@ -24,7 +24,14 @@ for (const g of games) {
   const js = out.outputFiles[0].text.replace(/<\/script/g, "<\\/script");
   writeFileSync(`docs/${g.file}.html`, `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1420">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Arcade">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="pwa.js" defer></script>
 <title>${g.title}</title>
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 <style>html,body{margin:0;background:#0f1420}</style>
