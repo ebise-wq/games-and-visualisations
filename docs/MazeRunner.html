@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<title>MAZE RUNNER · FPV</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#050510; --hud:#eaf2ff; --gold:#ffd866;
+    --g0:#ff3b4d; --g1:#ff8fd6; --g2:#33e7ff; --g3:#ffb24d;
+    --fright:#3a6bff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--void);
+    font-family:'Press Start 2P',monospace;color:var(--hud);
+    touch-action:none;user-select:none;-webkit-user-select:none;position:fixed}
+  #wrap{position:fixed;inset:0}
+  canvas{display:block}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+  #topbar{position:absolute;top:calc(8px + env(safe-area-inset-top));left:0;right:0;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:0 14px;font-size:11px;text-shadow:0 0 8px rgba(60,120,255,.9)}
+  #lives span{color:var(--gold);margin-right:4px;font-size:12px;
+    text-shadow:0 0 6px rgba(255,216,102,.9)}
+  #pelletbar{position:absolute;top:calc(30px + env(safe-area-inset-top));left:50%;
+    transform:translateX(-50%);width:172px;height:6px;display:flex;gap:2px}
+  #pelletbar .slot{height:100%;position:relative;border-radius:2px;overflow:hidden}
+  #pelletbar .fill{position:absolute;left:0;top:0;height:100%;width:100%;
+    border-radius:2px;transition:width .25s}
+  #powerbar{position:absolute;top:calc(38px + env(safe-area-inset-top));left:50%;
+    transform:translateX(-50%);width:160px;height:4px;background:rgba(58,107,255,.15);
+    border-radius:2px;overflow:hidden;opacity:0;transition:opacity .2s}
+  #powerbar.on{opacity:1}
+  #powerfill{height:100%;width:100%;background:var(--fright);
+    box-shadow:0 0 10px var(--fright)}
+
+  /* ---------- ghost radar indicators (signature element) ---------- */
+  .ind{position:absolute;left:0;top:0;width:0;height:0;will-change:transform;
+    transition:opacity .2s}
+  .ind .spin{position:absolute;left:0;top:0;width:0;height:0}
+  .ind .chev{position:absolute;left:-9px;top:-30px;width:0;height:0;
+    border-left:9px solid transparent;border-right:9px solid transparent;
+    border-bottom:13px solid var(--gc);
+    filter:drop-shadow(0 0 6px var(--gc))}
+  .ind .tag{position:absolute;transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;gap:2px}
+  .ind .dot{width:18px;height:18px;border-radius:50% 50% 4px 4px;
+    background:var(--gc);box-shadow:0 0 10px var(--gc),0 0 22px color-mix(in srgb,var(--gc) 60%,transparent);
+    display:flex;align-items:center;justify-content:center}
+  .ind .dot::before{content:'';width:10px;height:4px;border-radius:2px;background:#fff;
+    box-shadow:inset 3px 0 0 #223, inset -3px 0 0 #223}
+  .ind .dist{font-size:8px;color:var(--gc);text-shadow:0 0 5px var(--gc)}
+  .ind.onscreen .chev{display:none}
+  .ind.onscreen .dot{width:14px;height:14px}
+  .ind.frightened{--gc:var(--fright) !important}
+  .ind.frightened .dot{animation:blink .5s steps(2) infinite}
+  .ind.eaten{opacity:.35}
+  .ind.eaten .dot{background:transparent;box-shadow:none}
+  .ind.near .dot{animation:glow .42s ease-in-out infinite alternate}
+  @keyframes glow{from{box-shadow:0 0 10px var(--gc),0 0 22px var(--gc)}
+                  to{box-shadow:0 0 18px var(--gc),0 0 40px var(--gc),0 0 60px var(--gc)}}
+  @keyframes blink{50%{opacity:.35}}
+
+  /* ---------- danger vignette ---------- */
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:9;opacity:0;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(255,40,60,.55) 100%)}
+  #flash{position:fixed;inset:0;pointer-events:none;z-index:11;opacity:0;background:#ff2233}
+
+  /* ---------- controls ---------- */
+  #stickbase{position:fixed;width:108px;height:108px;border-radius:50%;
+    border:2px solid rgba(140,170,255,.35);background:rgba(20,30,80,.25);
+    z-index:12;display:none;pointer-events:none;backdrop-filter:blur(2px)}
+  #sticknub{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;
+    background:rgba(150,180,255,.45);box-shadow:0 0 12px rgba(100,140,255,.6);
+    transform:translate(-50%,-50%)}
+  #ctrlhint{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;
+    text-align:center;font-size:8px;color:rgba(170,195,255,.55);z-index:8;pointer-events:none}
+  #vtag{position:fixed;bottom:calc(3px + env(safe-area-inset-bottom));right:6px;z-index:50;
+    font-size:8px;letter-spacing:.5px;color:rgba(140,160,220,.35);pointer-events:none}
+  #minimap{position:fixed;top:calc(52px + env(safe-area-inset-top));left:10px;z-index:12;
+    border:1px solid rgba(150,180,255,.45);border-radius:6px;background:rgba(6,8,20,.5);
+    box-shadow:0 0 12px rgba(0,0,0,.55);pointer-events:none}
+  #radartimer{position:fixed;top:calc(170px + env(safe-area-inset-top));left:10px;z-index:12;
+    font-size:8px;letter-spacing:1px;color:#33e7ff;pointer-events:none;
+    text-shadow:0 0 8px rgba(51,231,255,.9)}
+  #outwarn{position:fixed;bottom:calc(42px + env(safe-area-inset-bottom));left:0;right:0;
+    text-align:center;z-index:13;font-size:10px;letter-spacing:1px;color:#7fe0ff;
+    pointer-events:none;text-shadow:0 0 10px currentColor}
+  #toast{position:fixed;top:17%;left:50%;z-index:14;pointer-events:none;text-align:center;
+    max-width:82vw;opacity:0;transform:translate(-50%,-10px) scale(.92);
+    transition:opacity .2s ease, transform .2s cubic-bezier(.2,1.4,.4,1)}
+  #toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
+  #toast .m{font-size:13px;letter-spacing:1px;color:#ffd866;
+    text-shadow:0 0 12px currentColor,0 0 26px currentColor;line-height:1.5}
+  #toast .s{font-size:8px;letter-spacing:1px;color:#aebfee;margin-top:7px}
+  #compass{position:fixed;top:calc(52px + env(safe-area-inset-top));right:10px;z-index:12;
+    width:46px;height:46px;border-radius:50%;background:rgba(6,8,20,.5);
+    border:1px solid rgba(150,180,255,.4);box-shadow:0 0 12px rgba(0,0,0,.5);pointer-events:none}
+  #compass .cinner{position:absolute;inset:0}
+  #compass .ntri{position:absolute;left:50%;top:4px;width:0;height:0;
+    border-left:5px solid transparent;border-right:5px solid transparent;
+    border-bottom:9px solid #ff4d5e;transform:translateX(-50%);
+    filter:drop-shadow(0 0 4px rgba(255,77,94,.8))}
+  #compass .nlbl{position:absolute;left:50%;top:12px;font-size:8px;color:#ff97a2;
+    transform:translateX(-50%);text-shadow:0 0 4px rgba(255,77,94,.7)}
+  #compass .hub{position:absolute;left:50%;top:50%;width:5px;height:5px;border-radius:50%;
+    background:#aebfee;transform:translate(-50%,-50%);box-shadow:0 0 5px rgba(174,191,238,.8)}
+
+  /* ---------- overlays ---------- */
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;text-align:center;
+    background:rgba(4,5,18,.86);backdrop-filter:blur(4px);padding:24px 18px;
+    overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .overlay h1{font-size:clamp(20px,5.5vw,38px);color:var(--gold);
+    text-shadow:0 0 18px rgba(255,216,102,.8),0 0 50px rgba(255,160,40,.4);line-height:1.4}
+  .overlay h1 em{font-style:normal;color:#33e7ff;text-shadow:0 0 18px rgba(51,231,255,.8)}
+  .overlay p{font-size:9px;line-height:1.9;color:#aebfee;max-width:340px}
+  .overlay .ghosts{display:flex;gap:14px;font-size:9px}
+  .overlay .ghosts i{display:flex;flex-direction:column;align-items:center;gap:6px;font-style:normal}
+  .overlay .ghosts b{width:20px;height:20px;border-radius:50% 50% 4px 4px}
+  .seglabel{font-size:8px;letter-spacing:2px;color:#8fa6e6}
+  .segctl{display:flex;gap:8px;pointer-events:auto}
+  .segctl button{font-family:inherit;font-size:10px;cursor:pointer;color:#aebfee;
+    background:rgba(40,55,120,.35);border:1px solid rgba(120,150,255,.3);
+    padding:9px 14px;border-radius:6px;letter-spacing:1px}
+  .segctl button.on{color:#0a1020;background:var(--gold);border-color:var(--gold);
+    box-shadow:0 0 14px rgba(255,216,102,.5)}
+  .segctl button:active{transform:scale(.94)}
+  .lb{width:230px;max-width:80vw;background:rgba(10,14,34,.6);
+    border:1px solid rgba(120,150,255,.22);border-radius:8px;padding:10px 12px}
+  .lbhead{font-size:8px;letter-spacing:1px;color:var(--gold);margin-bottom:8px}
+  .lb ol{list-style:none;counter-reset:rk}
+  .lb li{counter-increment:rk;display:flex;justify-content:space-between;
+    font-size:9px;color:#c5d4ff;padding:3px 0;border-bottom:1px solid rgba(120,150,255,.08)}
+  .lb li:last-child{border-bottom:none}
+  .lb li::before{content:counter(rk)". ";color:#7f93d6;margin-right:6px}
+  .lb li .nm{flex:1;text-align:left;color:#aebfee}
+  .lb li .sc{color:#fff}
+  .lb li.fresh .sc,.lb li.fresh .nm{color:var(--gold);text-shadow:0 0 8px rgba(255,216,102,.6)}
+  .lb .empty{font-size:8px;color:#6477b0;padding:6px 0}
+  #newhigh{display:flex;flex-direction:column;align-items:center;gap:10px}
+  #initials{font-family:inherit;font-size:18px;text-align:center;letter-spacing:6px;
+    width:120px;text-transform:uppercase;color:var(--gold);background:rgba(10,14,34,.8);
+    border:1px solid var(--gold);border-radius:6px;padding:8px;pointer-events:auto;outline:none}
+  .btn{pointer-events:auto;cursor:pointer;font-family:inherit;font-size:12px;
+    background:var(--gold);border:none;padding:14px 26px;border-radius:6px;
+    color:#1a1200;box-shadow:0 0 18px rgba(255,216,102,.55);letter-spacing:1px}
+  .btn:active{transform:scale(.95)}
+  .btn2{pointer-events:auto;cursor:pointer;font-family:inherit;font-size:10px;
+    color:#aebfee;background:rgba(40,55,120,.35);border:1px solid rgba(120,150,255,.35);
+    padding:11px 20px;border-radius:6px;letter-spacing:1px}
+  .btn2:active{transform:scale(.95)}
+  .rules{max-width:360px;width:86vw;text-align:left;font-size:9px;line-height:1.95;
+    color:#c5d4ff;max-height:60vh;overflow-y:auto;padding:0 8px;
+    -webkit-overflow-scrolling:touch}
+  .rules h3{color:var(--gold);font-size:9px;margin:14px 0 4px;letter-spacing:1px}
+  .rules h3:first-child{margin-top:0}
+  .rules b{color:#fff}
+  .hidden{display:none !important}
+  #bigscore{font-size:13px;color:#fff}
+  #topbar{padding-right:46px}
+  #pausebtn{position:fixed;top:calc(6px + env(safe-area-inset-top));right:8px;
+    z-index:13;width:30px;height:22px;border:none;
+    background:transparent;color:rgba(170,195,255,.6);font-family:inherit;font-size:10px;
+    cursor:pointer}
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+
+<div id="vig"></div>
+<div id="flash"></div>
+
+<div id="hud">
+  <div id="topbar">
+    <div id="score">0</div>
+    <div id="lives"></div>
+    <div id="level">L1</div>
+  </div>
+  <div id="pelletbar"></div>
+  <div id="powerbar"><div id="powerfill"></div></div>
+  <div id="inds"></div>
+</div>
+
+<button id="pausebtn" class="hidden">II</button>
+<canvas id="minimap" class="hidden"></canvas>
+<div id="radartimer" class="hidden"></div>
+<div id="outwarn" class="hidden"></div>
+<div id="compass" class="hidden"><div class="cinner"><div class="ntri"></div><div class="nlbl">N</div></div><div class="hub"></div></div>
+<div id="toast"><div class="m"></div><div class="s"></div></div>
+<div id="stickbase"><div id="sticknub"></div></div>
+<div id="ctrlhint" class="hidden">PRESS&nbsp;ANYWHERE&nbsp;·&nbsp;FORWARD&nbsp;TO&nbsp;GO&nbsp;·&nbsp;LEFT/RIGHT&nbsp;AT&nbsp;TURNS</div>
+
+<div id="startov" class="overlay">
+  <h1>MAZE<br><em>RUNNER</em></h1>
+  <p>EAT EVERY PELLET. FOUR HUNTERS STALK THE MAZE —<br>RADAR ARROWS TRACK THEM THROUGH THE WALLS.<br>GOLD ORBS TURN THE TABLES.</p>
+  <div class="seglabel">SPEED</div>
+  <div id="speedsel" class="segctl">
+    <button data-sp="slow">SLOW</button>
+    <button data-sp="medium" class="on">MEDIUM</button>
+    <button data-sp="fast">FAST</button>
+  </div>
+  <div class="lb">
+    <div class="lbhead">HIGH SCORES · <span id="lbspeedlabel">MEDIUM</span></div>
+    <ol id="lblist"></ol>
+  </div>
+  <button class="btn" id="startbtn">INSERT COIN</button>
+  <button class="btn2" id="rulesbtn">HOW TO PLAY</button>
+</div>
+
+<div id="rulesov" class="overlay hidden">
+  <h1 style="font-size:20px">HOW TO PLAY</h1>
+  <div class="rules">
+    <h3>OBJECTIVE</h3>
+    Eat every pellet to clear the maze. Clear it to advance — the hunters get faster each level.
+
+    <h3>MOVE</h3>
+    Press and hold <b>anywhere</b> — a stick appears under your thumb. Push <b>forward</b> to roll down the corridor, tap <b>left/right</b> to turn at junctions, and <b>pull back</b> to reverse (works even in dead ends). Steering is relative to your view, and you keep rolling until you hit a wall or steer.
+
+    <h3>THE FOUR HUNTERS</h3>
+    <b style="color:#ff3b4d">RUSH</b> charges straight at you.<br>
+    <b style="color:#ff8fd6">AMBUSH</b> aims ahead to cut you off.<br>
+    <b style="color:#33e7ff">FLANK</b> teams with RUSH to trap you.<br>
+    <b style="color:#ffb24d">DRIFT</b> chases from afar but shies away up close.<br>
+    They swing between scattering to their corners and hunting you in waves.
+
+    <h3>TRACKING</h3>
+    Colored arrows point to each hunter — <b>closer = bigger</b>. They glow <b>through walls</b> when near, so watch blind corners. A red haze creeps in from the direction of the nearest threat.
+
+    <h3>POWER ORBS</h3>
+    Eat a <b>gold orb</b> to turn the hunters blue and edible for a short window. Catch them for big points — their eyes scurry back to the pen to revive.
+
+    <h3>PELLET RADAR</h3>
+    Catching a blue hunter reveals all remaining pellets on the minimap. Chain catches on one orb to <b>stack the time</b>: +3s, +5s, +7s, +10s.
+
+    <h3>COLORS</h3>
+    The maze is split into <b>six colored regions</b>. Pellets, walls, and the top bar all share these colors, so you can tell at a glance which area still has pellets. Under 10 left, they appear on the minimap too.
+
+    <h3>MAP &amp; COMPASS</h3>
+    The minimap (top-left) is always <b>north-up</b>, marked N. The compass (top-right) shows where north is in your first-person view.
+
+    <h3>SCORING</h3>
+    Pellet <b>10</b> · Orb <b>50</b> · Hunter <b>200</b>, doubling with each catch in a combo.
+
+    <h3>SPEED &amp; SCORES</h3>
+    Pick <b>Slow / Medium / Fast</b> on the title screen. High scores are saved on your device, kept separately per speed.
+  </div>
+  <button class="btn" id="rulesback">BACK</button>
+</div>
+
+<div id="deathov" class="overlay hidden">
+  <h1 id="deathtitle" style="color:#ff3b4d;text-shadow:0 0 18px rgba(255,59,77,.8)">CAUGHT!</h1>
+  <p id="deathmsg"></p>
+</div>
+
+<div id="gameov" class="overlay hidden">
+  <h1 style="color:#ff3b4d;text-shadow:0 0 18px rgba(255,59,77,.8)">GAME OVER</h1>
+  <div id="bigscore"></div>
+  <div id="newhigh" class="hidden">
+    <div class="seglabel" style="color:var(--gold)">NEW HIGH SCORE — ENTER INITIALS</div>
+    <input id="initials" maxlength="3" autocomplete="off" spellcheck="false" placeholder="AAA">
+    <button class="btn" id="savebtn">SAVE</button>
+  </div>
+  <div class="lb">
+    <div class="lbhead">HIGH SCORES · <span id="lbspeedlabel2">MEDIUM</span></div>
+    <ol id="lblist2"></ol>
+  </div>
+  <button class="btn" id="retrybtn">RETRY</button>
+</div>
+
+<div id="winov" class="overlay hidden">
+  <h1>MAZE<br>CLEARED!</h1>
+  <p id="winmsg"></p>
+  <button class="btn" id="nextbtn">NEXT LEVEL</button>
+</div>
+
+<div id="pauseov" class="overlay hidden">
+  <h1 style="font-size:18px">PAUSED</h1>
+  <button class="btn" id="resumebtn">RESUME</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ============================= MAZE ============================= */
+const MAP = [
+"#################",
+"#o......#......o#",
+"#.##.##.#.##.##.#",
+"#.##.##.#.##.##.#",
+"#...............#",
+"#.##.#.###.#.##.#",
+"#....#.   .#....#",
+"####.##...##.####",
+"#......#.#......#",
+"#.####.#.#.####.#",
+"#......#.#......#",
+"####.##...##.####",
+"#....#.....#....#",
+"#.##.#.###.#.##.#",
+"#...............#",
+"#.##.##.#.##.##.#",
+"#o##.##. .##.##o#",
+"#....#.....#....#",
+"#################"];
+const ROWS = MAP.length, COLS = MAP[0].length;
+const CELL = 2, WALL_H = 2.6, EYE_H = 1.05;
+const PLAYER_START = {r:14, c:8};
+const GHOST_SPAWNS = [{r:6,c:8},{r:6,c:7},{r:6,c:9},{r:7,c:8}];
+const SCATTER = [{r:1,c:1},{r:1,c:15},{r:17,c:15},{r:17,c:1}];
+
+const grid = MAP.map(row => row.split(''));            // mutable copy
+const isWall  = (r,c)=> r<0||c<0||r>=ROWS||c>=COLS||grid[r][c]==='#';
+const isOpen  = (r,c)=> !isWall(r,c);
+const cx = c => c*CELL, cz = r => r*CELL;
+const toCell = (x,z)=>({ r: Math.round(z/CELL), c: Math.round(x/CELL) });
+
+// ---- secret backdoors (player-only): bottom-middle and west-middle ----
+const OUT_MARGIN=7;                                   // how far you can roam outside
+const SECRET=new Set([ (ROWS-1)+','+Math.floor(COLS/2),   // bottom middle border
+                       Math.floor(ROWS/2)+',0' ]);       // west middle border
+const isSolid=(r,c)=> r>=0&&c>=0&&r<ROWS&&c<COLS && grid[r][c]==='#';   // real interior wall
+// passability for the PLAYER only — opens the secret cells + the exterior band
+function playerOpen(r,c){
+  if(r>=0&&c>=0&&r<ROWS&&c<COLS) return grid[r][c]!=='#' || SECRET.has(r+','+c);
+  return r>=-OUT_MARGIN && c>=-OUT_MARGIN && r<ROWS+OUT_MARGIN && c<COLS+OUT_MARGIN;
+}
+
+// maze split into NSEG angular regions; pellets + the progress bar share these colours
+const NSEG=6;
+const regionOf=(r,c)=>{
+  const u=((Math.atan2(r-(ROWS-1)/2, c-(COLS-1)/2)/(Math.PI*2))+1)%1;
+  return Math.floor(u*NSEG)%NSEG;
+};
+const regionHue=k=>(k+0.5)/NSEG;
+
+// flood fill from player start: any pellet not reachable becomes empty (safety)
+(function flood(){
+  const seen = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  const q=[[PLAYER_START.r,PLAYER_START.c]]; seen[PLAYER_START.r][PLAYER_START.c]=true;
+  while(q.length){ const [r,c]=q.pop();
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{
+      const nr=r+dr,nc=c+dc;
+      if(isOpen(nr,nc)&&!seen[nr][nc]){seen[nr][nc]=true;q.push([nr,nc]);}});}
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if((grid[r][c]==='.'||grid[r][c]==='o')&&!seen[r][c]) grid[r][c]=' ';
+})();
+
+/* ============================= AUDIO ============================= */
+let AC=null, muted=false;
+function audioInit(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+  if(AC&&AC.state==='suspended')AC.resume(); }
+function tone(f0,f1,dur,type,vol){
+  if(!AC||muted)return;
+  const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t+dur);
+}
+let wakaFlip=false;
+const sfx={
+  pellet(){ wakaFlip=!wakaFlip; tone(wakaFlip?540:660,wakaFlip?660:540,.07,'triangle',.10); },
+  power(){ tone(180,640,.45,'sawtooth',.12); vibrate(30); },
+  eatGhost(){ tone(260,980,.28,'square',.12); vibrate(40); },
+  death(){ tone(620,70,.85,'sawtooth',.16); vibrate([120,60,160]); },
+  win(){ tone(440,880,.18,'square',.1); setTimeout(()=>tone(550,1100,.18,'square',.1),160);
+         setTimeout(()=>tone(660,1320,.3,'square',.1),320); }
+};
+function vibrate(p){ if(navigator.vibrate) try{navigator.vibrate(p);}catch(e){} }
+
+/* ============================= THREE ============================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050510);
+scene.fog = new THREE.Fog(0x050510, 4, 34);
+
+const camera = new THREE.PerspectiveCamera(90, innerWidth/innerHeight, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+document.getElementById('wrap').appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x3344aa, 0x0a0a18, 0.5));
+const lamp = new THREE.PointLight(0x99bbff, 1.1, 16, 1.6);
+scene.add(lamp);
+
+// stars
+(function stars(){
+  const n=350, pos=new Float32Array(n*3);
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, rr=40+Math.random()*40;
+    pos[i*3]=Math.cos(a)*rr; pos[i*3+1]=10+Math.random()*45; pos[i*3+2]=Math.sin(a)*rr; }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({color:0x8899ff,size:.3,fog:false})));
+})();
+
+// floor with grid texture
+(function floor(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=128;
+  const x=cv.getContext('2d');
+  x.fillStyle='#070a16'; x.fillRect(0,0,128,128);
+  x.strokeStyle='rgba(50,80,200,0.28)'; x.lineWidth=2;
+  x.strokeRect(1,1,126,126);
+  const tx=new THREE.CanvasTexture(cv);
+  tx.wrapS=tx.wrapT=THREE.RepeatWrapping;
+  const FLOOR_MARGIN=24;                                  // floor reaches far past the roam edge
+  const fw=COLS+2*FLOOR_MARGIN, fh=ROWS+2*FLOOR_MARGIN;
+  tx.repeat.set(fw,fh);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(fw*CELL,fh*CELL),
+    new THREE.MeshStandardMaterial({map:tx,roughness:.9}));
+  m.rotation.x=-Math.PI/2;
+  m.position.set((COLS-1)*CELL/2, 0, (ROWS-1)*CELL/2);
+  scene.add(m);
+})();
+
+// walls (instanced) — tinted by maze region + neon top edge so areas are distinguishable
+(function walls(){
+  const cells=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(grid[r][c]==='#'){
+    // skip fully-buried walls
+    if(isWall(r-1,c)&&isWall(r+1,c)&&isWall(r,c-1)&&isWall(r,c+1)
+      &&isWall(r-1,c-1)&&isWall(r-1,c+1)&&isWall(r+1,c-1)&&isWall(r+1,c+1)) continue;
+    cells.push([r,c]);
+  }
+  const body=new THREE.InstancedMesh(
+    new THREE.BoxGeometry(CELL,WALL_H,CELL),
+    new THREE.MeshStandardMaterial({roughness:.55,metalness:.15,
+      emissive:0x0a0e26, emissiveIntensity:.55}), cells.length);
+  const edge=new THREE.InstancedMesh(
+    new THREE.BoxGeometry(CELL*1.04,.14,CELL*1.04),
+    new THREE.MeshBasicMaterial(), cells.length);
+  const m4=new THREE.Matrix4(), col=new THREE.Color(), ecol=new THREE.Color();
+  const midR=(ROWS-1)/2, midC=(COLS-1)/2;
+  cells.forEach(([r,c],i)=>{
+    m4.makeTranslation(cx(c),WALL_H/2,cz(r)); body.setMatrixAt(i,m4);
+    m4.makeTranslation(cx(c),WALL_H,cz(r));   edge.setMatrixAt(i,m4);
+    // discrete region hue → each area is one solid colour matching its pellets
+    const rad=Math.hypot((r-midR)/midR,(c-midC)/midC);
+    const hue=regionHue(regionOf(r,c));
+    col.setHSL(hue, 0.52, 0.30+rad*0.05);   body.setColorAt(i,col);
+    ecol.setHSL(hue, 0.9, 0.62);            edge.setColorAt(i,ecol);
+  });
+  body.instanceColor.needsUpdate=true; edge.instanceColor.needsUpdate=true;
+  scene.add(body,edge);
+})();
+
+// secret-backdoor markers: a green glow on the OUTER face only (hidden from inside by the wall)
+(function backdoors(){
+  const mk=(x,z,ry)=>{
+    const g=new THREE.Group();
+    const panel=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.82, WALL_H*0.8),
+      new THREE.MeshBasicMaterial({color:0x2bff8c, transparent:true, opacity:0.45}));
+    const frame=new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.95, WALL_H*0.94),
+      new THREE.MeshBasicMaterial({color:0x2bff8c, transparent:true, opacity:0.18}));
+    frame.position.z=-0.01;
+    g.add(frame,panel);
+    g.position.set(x, WALL_H/2, z); g.rotation.y=ry;
+    scene.add(g);
+  };
+  const bc=Math.floor(COLS/2), br=ROWS-1, wr=Math.floor(ROWS/2);
+  mk(cx(bc), cz(br)+CELL/2+0.06, 0);            // bottom-middle, faces south (+Z)
+  mk(cx(0)-CELL/2-0.06, cz(wr), -Math.PI/2);    // west-middle, faces west (-X)
+})();
+
+// pellets
+const pellets=[]; const pelletIndex={};       // "r,c" -> instance id
+let pelletMesh, pelletsLeft=0, pelletTotal=0;
+const regionOfPellet=[];                       // instance id -> region
+const regionTotal=new Array(NSEG).fill(0);
+let regionLeft=new Array(NSEG).fill(0);
+const powerPellets=[];                         // {mesh,r,c,eaten}
+(function makePellets(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(grid[r][c]==='.') pellets.push({r,c});
+    if(grid[r][c]==='o'){
+      const m=new THREE.Mesh(new THREE.SphereGeometry(.30,12,10),
+        new THREE.MeshBasicMaterial({color:0xffd866}));
+      m.position.set(cx(c),.9,cz(r)); scene.add(m);
+      powerPellets.push({mesh:m,r,c,eaten:false});
+    }
+  }
+  pelletMesh=new THREE.InstancedMesh(
+    new THREE.SphereGeometry(.13,8,6),
+    new THREE.MeshBasicMaterial({transparent:true, opacity:.95}), pellets.length);
+  const m4=new THREE.Matrix4(), pc=new THREE.Color();
+  pellets.forEach((p,i)=>{ m4.makeTranslation(cx(p.c),.7,cz(p.r));
+    pelletMesh.setMatrixAt(i,m4); pelletIndex[p.r+','+p.c]=i;
+    const reg=regionOf(p.r,p.c); regionOfPellet[i]=reg; regionTotal[reg]++;
+    pc.setHSL(regionHue(reg), 0.85, 0.66);
+    pelletMesh.setColorAt(i,pc);
+  });
+  pelletMesh.instanceColor.needsUpdate=true;
+  scene.add(pelletMesh);
+  pelletTotal=pelletsLeft=pellets.length;
+  regionLeft=regionTotal.slice();
+})();
+const ZERO_M4=new THREE.Matrix4().makeScale(0,0,0);
+
+/* ============================= GHOSTS ============================= */
+const GHOST_DEFS=[
+  {name:'RUSH',  color:0xff3b4d, css:'var(--g0)'},
+  {name:'AMBUSH',color:0xff8fd6, css:'var(--g1)'},
+  {name:'FLANK', color:0x33e7ff, css:'var(--g2)'},
+  {name:'DRIFT', color:0xffb24d, css:'var(--g3)'}];
+const FRIGHT_COLOR=0x3a6bff;
+
+function buildGhostMesh(color){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.45,roughness:.4});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.42,.46,.6,14),mat);
+  body.position.y=.55;
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.42,14,12,0,Math.PI*2,0,Math.PI/2),mat);
+  head.position.y=.85;
+  const eyeG=new THREE.SphereGeometry(.10,8,8);
+  const eyeM=new THREE.MeshBasicMaterial({color:0xffffff});
+  const pupG=new THREE.SphereGeometry(.05,6,6);
+  const pupM=new THREE.MeshBasicMaterial({color:0x101840});
+  const eyes=new THREE.Group();
+  [-0.16,0.16].forEach(x=>{
+    const e=new THREE.Mesh(eyeG,eyeM); e.position.set(x,.95,-.34);
+    const p=new THREE.Mesh(pupG,pupM); p.position.set(x,.95,-.42);
+    eyes.add(e,p);
+  });
+  g.add(body,head,eyes);
+  g.userData={mat,bodyParts:[body,head]};
+  return g;
+}
+
+// soft radial sprite texture for the through-wall "x-ray" halo
+const HALO_TEX=(function(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=64;
+  const x=cv.getContext('2d');
+  const g=x.createRadialGradient(32,32,2,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)');
+  g.addColorStop(0.35,'rgba(255,255,255,0.5)');
+  g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(cv);
+})();
+
+// billboard text label (for the strategy word above each ghost)
+function makeTextSprite(text, hex){
+  const cv=document.createElement('canvas');
+  const ctx=cv.getContext('2d');
+  const font='400 40px Arial, sans-serif';
+  ctx.font=font;
+  const w=Math.ceil(ctx.measureText(text).width);
+  cv.width=w+22; cv.height=58;
+  ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,12,0.5)'; ctx.shadowBlur=4;
+  ctx.fillStyle='#'+new THREE.Color(hex).getHexString();
+  ctx.fillText(text, cv.width/2, cv.height/2);
+  const tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false}));
+  const h=0.58;
+  sp.scale.set(h*cv.width/cv.height, h, 1);
+  return sp;
+}
+
+const ghosts=GHOST_DEFS.map((d,i)=>{
+  const mesh=buildGhostMesh(d.color); scene.add(mesh);
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:HALO_TEX, color:d.color,
+    transparent:true, opacity:0, depthTest:false, depthWrite:false,
+    blending:THREE.AdditiveBlending}));
+  halo.scale.set(2.4,2.4,1); halo.renderOrder=999; scene.add(halo);
+  const label=makeTextSprite(d.name, d.color);
+  label.position.set(0,1.85,0); label.renderOrder=998; mesh.add(label);
+  return { i, def:d, mesh, halo, label, mat:mesh.userData.mat,
+    r:0,c:0, tr:0,tc:0, dir:null, x:0,z:0, frightened:false,
+    mode:'wait', releaseAt:0, speed:0, bob:Math.random()*6 };
+});
+
+function ghostReset(g, delay){
+  const s=GHOST_SPAWNS[g.i];
+  g.r=g.tr=s.r; g.c=g.tc=s.c;
+  g.x=cx(s.c); g.z=cz(s.r);
+  g.dir=null; g.mode='wait'; g.frightened=false;
+  g.releaseAt=state.t + delay;
+  g.mesh.visible=true;
+  if(g.halo) g.halo.material.opacity=0;
+  setGhostSkin(g);
+}
+function isFright(g){ return g.frightened && state.power>0 && g.mode!=='eaten'; }
+function setGhostSkin(g){
+  const fr = isFright(g);
+  g.mat.color.setHex(fr?FRIGHT_COLOR:g.def.color);
+  g.mat.emissive.setHex(fr?FRIGHT_COLOR:g.def.color);
+  g.mesh.userData.bodyParts.forEach(p=>p.visible = g.mode!=='eaten');
+}
+
+const DIRS=[{dr:-1,dc:0},{dr:1,dc:0},{dr:0,dc:-1},{dr:0,dc:1}];
+function chooseDir(g, target){
+  const opts=DIRS.filter(d=>isOpen(g.r+d.dr, g.c+d.dc));
+  let pool=opts.filter(d=>!(g.dir && d.dr===-g.dir.dr && d.dc===-g.dir.dc));
+  if(pool.length===0) pool=opts;                       // dead end: allow reverse
+  const fr = isFright(g);
+  if(fr){                                              // frightened: mostly random, biased away
+    if(Math.random()<.5) return pool[Math.floor(Math.random()*pool.length)];
+    let best=pool[0],bd=-1;
+    pool.forEach(d=>{
+      const dr=(g.r+d.dr)-target.r, dc=(g.c+d.dc)-target.c, dist=dr*dr+dc*dc;
+      if(dist>bd){bd=dist;best=d;} });
+    return best;
+  }
+  let best=pool[0],bd=1e9;
+  pool.forEach(d=>{
+    const dr=(g.r+d.dr)-target.r, dc=(g.c+d.dc)-target.c, dist=dr*dr+dc*dc;
+    if(dist<bd){bd=dist;best=d;} });
+  return best;
+}
+function ghostTarget(g){
+  const pc=toCell(player.x,player.z);
+  if(g.mode==='eaten') return GHOST_SPAWNS[g.i];
+  if(isFright(g)) return pc;                           // flee from player (handled in chooseDir)
+  if(g.mode==='scatter') return SCATTER[g.i];
+  const f={dr:Math.round(-Math.cos(player.yaw)), dc:Math.round(-Math.sin(player.yaw))};
+  switch(g.i){
+    case 0: return pc;                                                   // RUSH: direct
+    case 1: return {r:pc.r+f.dr*3, c:pc.c+f.dc*3};                       // AMBUSH: ahead
+    case 2: {                                                            // FLANK: mirror via RUSH
+      const b=ghosts[0];
+      return {r:pc.r+(pc.r-b.r), c:pc.c+(pc.c-b.c)}; }
+    case 3: {                                                            // DRIFT: shy
+      const d=(pc.r-g.r)**2+(pc.c-g.c)**2;
+      return d>36 ? pc : SCATTER[3]; }
+  }
+}
+function updateGhost(g, dt){
+  if(g.mode==='wait'){
+    if(state.t>=g.releaseAt){ g.mode='hunt'; }
+    else { g.mesh.position.set(g.x, .12+Math.sin(state.t*4+g.bob)*.06, g.z); return; }
+  }
+  const sp = g.mode==='eaten' ? 9.5 : (isFright(g) ? state.ghostSpeed*0.62 : state.ghostSpeed);
+  // advance toward target cell center
+  const txp=cx(g.tc), tzp=cz(g.tr);
+  const dx=txp-g.x, dz=tzp-g.z, dist=Math.hypot(dx,dz);
+  if(dist < sp*dt + 1e-4){
+    g.x=txp; g.z=tzp; g.r=g.tr; g.c=g.tc;
+    if(g.mode==='eaten'){
+      const s=GHOST_SPAWNS[g.i];
+      if(g.r===s.r && g.c===s.c){ g.mode='hunt'; g.frightened=false; setGhostSkin(g); }
+    }
+    const d=chooseDir(g, ghostTarget(g));
+    g.dir=d; g.tr=g.r+d.dr; g.tc=g.c+d.dc;
+  } else {
+    g.x+=dx/dist*sp*dt; g.z+=dz/dist*sp*dt;
+  }
+  g.mesh.position.set(g.x, .12+Math.sin(state.t*4+g.bob)*.06, g.z);
+  if(g.dir) g.mesh.rotation.y = Math.atan2(-g.dir.dc, -g.dir.dr);
+  // x-ray halo: glows through walls, strongest as a hunter closes in
+  const hdist=Math.hypot(g.x-player.x, g.z-player.z)/CELL;
+  g.halo.position.set(g.x, 0.95, g.z);
+  let op=0;
+  if(g.mode!=='eaten'){
+    if(isFright(g)) op = hdist<6 ? 0.22*(1-hdist/6) : 0;            // edible: faint lure
+    else           op = hdist<6.5 ? 0.8*Math.pow(1-hdist/6.5,1.3) : 0; // hunter: bright & close
+  }
+  g.halo.material.opacity=op;
+  g.halo.material.color.setHex(isFright(g)?FRIGHT_COLOR:g.def.color);
+  g.label.visible = g.mode!=='eaten';
+}
+
+/* ============================= PLAYER ============================= */
+const player={ x:cx(PLAYER_START.c), z:cz(PLAYER_START.r), yaw:0, pitch:0,
+  speed:5.4, radius:.5, invuln:0 };
+
+/* ============================= OUTSIDE THE MAZE ============================= */
+const MAZE_CX=(COLS-1)*CELL/2, MAZE_CZ=(ROWS-1)*CELL/2;
+const isOutsidePos=(x,z)=>{ const c=toCell(x,z); return c.r<0||c.c<0||c.r>=ROWS||c.c>=COLS; };
+
+// ---- flat text decal (graffiti / signs) ----
+function makeTextDecal(text, opts){
+  opts=opts||{};
+  const cv=document.createElement('canvas'); cv.width=512; cv.height=256;
+  const x=cv.getContext('2d');
+  x.font=(opts.font||'700 64px Arial, sans-serif');
+  x.textAlign='center'; x.textBaseline='middle';
+  if(opts.shadow!==false){ x.shadowColor=opts.color||'#ff5ea8'; x.shadowBlur=18; }
+  x.fillStyle=opts.color||'#ff5ea8';
+  (text.split('\n')).forEach((ln,i,arr)=>{
+    x.fillText(ln, 256, 128 + (i-(arr.length-1)/2)*70);
+  });
+  const tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(opts.w||7, opts.h||3.5),
+    new THREE.MeshBasicMaterial({map:tex, transparent:true,
+      opacity:opts.opacity||0.92, side:THREE.DoubleSide}));
+  m.position.set(opts.x||0, opts.y||1.6, opts.z||0);
+  if(opts.ry!=null) m.rotation.y=opts.ry;
+  if(opts.rz!=null) m.rotation.z=opts.rz;
+  scene.add(m);
+  return m;
+}
+// 'Siebe was here' on the south outer wall, beside the bottom backdoor
+makeTextDecal('SIEBE\nWAS HERE', {x:cx(4), y:1.5, z:cz(ROWS-1)+CELL/2+0.07, ry:0,
+  color:'#ff5ea8', w:6.5, h:4, rz:0.06});
+// the taunt — a floating billboard out in the dark, where the shark lurks
+const tauntSprite=(function(){
+  const cv=document.createElement('canvas'); cv.width=768; cv.height=192;
+  const x=cv.getContext('2d');
+  x.font='italic 700 52px Georgia, serif'; x.textAlign='center'; x.textBaseline='middle';
+  x.shadowColor='#7fe0ff'; x.shadowBlur=22; x.fillStyle='#cdecff';
+  x.fillText('hahaha you think you\u2019re safe?', 384, 96);
+  const tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0.9, depthWrite:false}));
+  sp.scale.set(14,3.5,1);
+  sp.position.set(MAZE_CX, 3.2, cz(ROWS-1)+CELL*5);   // out south, in the void
+  scene.add(sp);
+  return sp;
+})();
+
+// ---- outdoor leaderboard monument (drawn from the local high scores) ----
+const lbMon=(function(){
+  const cv=document.createElement('canvas'); cv.width=512; cv.height=640;
+  const tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+  const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.FrontSide, fog:false});
+  const px=cx(0)-CELL*3.2, pz=cz(Math.floor(ROWS/2)), py=4.6;
+  // two single-sided faces, back-to-back, so the text reads correctly
+  // whether you approach from the south or from the north
+  const south=new THREE.Mesh(new THREE.PlaneGeometry(7,8.75), mat);   // normal +Z, read from the south
+  south.position.set(px,py,pz); scene.add(south);
+  const north=new THREE.Mesh(new THREE.PlaneGeometry(7,8.75), mat);   // normal -Z, read from the north
+  north.position.set(px,py,pz); north.rotation.y=Math.PI; scene.add(north);
+  // a little pillar under it
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,4.4,8),
+    new THREE.MeshStandardMaterial({color:0x2a3866, emissive:0x10204a, emissiveIntensity:.5, fog:false}));
+  post.position.set(px,0.2,pz); scene.add(post);
+  return {cv, tex};
+})();
+function drawLeaderboardMonument(){
+  const x=lbMon.cv.getContext('2d'), W=512, H=640;
+  x.clearRect(0,0,W,H);
+  x.fillStyle='rgba(8,11,28,0.82)'; x.fillRect(0,0,W,H);
+  x.strokeStyle='rgba(120,150,255,0.5)'; x.lineWidth=4; x.strokeRect(6,6,W-12,H-12);
+  x.textAlign='center';
+  x.font='700 40px Arial'; x.fillStyle='#ffd866'; x.shadowColor='#ffb84d'; x.shadowBlur=14;
+  x.fillText('HIGH SCORES', W/2, 60);
+  x.shadowBlur=0; x.font='600 22px Arial'; x.fillStyle='#8fa6e6';
+  x.fillText((SPEEDS[speedKey]?SPEEDS[speedKey].label:'MEDIUM'), W/2, 100);
+  const b=lbBoard(speedKey);
+  x.font='600 30px Arial'; x.textAlign='left';
+  if(!b.length){ x.fillStyle='#6477b0'; x.textAlign='center';
+    x.fillText('— no scores yet —', W/2, 220); }
+  else b.slice(0,8).forEach((e,i)=>{
+    const y=160+i*56;
+    x.fillStyle='#7f93d6'; x.fillText((i+1)+'.', 40, y);
+    x.fillStyle='#c5d4ff'; x.fillText(e.name, 100, y);
+    x.fillStyle='#ffffff'; x.textAlign='right'; x.fillText(''+e.score, W-40, y); x.textAlign='left';
+  });
+  lbMon.tex.needsUpdate=true;
+}
+
+// ---- the void shark (whale shark) ----
+const whale=(function(){
+  const g=new THREE.Group();
+  const skin=new THREE.MeshStandardMaterial({color:0x1c3e63,roughness:.6,metalness:.1,
+    emissive:0x1a3a6a,emissiveIntensity:1.05, fog:false});
+  const bellyMat=new THREE.MeshStandardMaterial({color:0xeef4f8,roughness:.85,
+    emissive:0x2a3f55,emissiveIntensity:.3, fog:false});
+  const spotMat=new THREE.MeshBasicMaterial({color:0xeaf6ff, fog:false});
+  // body — flattened ellipsoid, front = -z
+  const body=new THREE.Mesh(new THREE.SphereGeometry(1,32,24),skin);
+  body.scale.set(2.0,1.1,5.3); g.add(body);
+  // white belly underside
+  const belly=new THREE.Mesh(new THREE.SphereGeometry(1,28,18),bellyMat);
+  belly.scale.set(1.75,0.66,4.7); belly.position.y=-0.5; g.add(belly);
+  // broad flat head
+  const head=new THREE.Mesh(new THREE.SphereGeometry(1,28,18),skin);
+  head.scale.set(2.35,0.95,1.9); head.position.set(0,0.05,-3.9); g.add(head);
+  // wide terminal mouth that opens
+  const mouthGrp=new THREE.Group();
+  const mouth=new THREE.Mesh(new THREE.CircleGeometry(1.0,28),
+    new THREE.MeshBasicMaterial({color:0x06060f,side:THREE.DoubleSide,fog:false}));
+  mouth.scale.set(2.1,0.55,1); mouth.position.z=-4.85; mouthGrp.add(mouth);
+  g.add(mouthGrp);
+  // glowing eyes
+  const eyeMat=new THREE.MeshBasicMaterial({color:0xfff0a0, fog:false});
+  [-1.95,1.95].forEach(sx=>{ const e=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,10),eyeMat);
+    e.position.set(sx,0.25,-4.5); g.add(e); });
+  // dorsal fin
+  const dorsal=new THREE.Mesh(new THREE.ConeGeometry(1.0,2.6,3),skin);
+  dorsal.scale.set(0.2,1,1.5); dorsal.position.set(0,1.05,0.3); dorsal.rotation.x=-0.35; g.add(dorsal);
+  // pectoral fins (wide, swept)
+  [-1,1].forEach(s=>{ const f=new THREE.Mesh(new THREE.ConeGeometry(1.15,3.0,3),skin);
+    f.scale.set(1,0.12,1.3); f.position.set(s*2.05,-0.45,-1.0);
+    f.rotation.set(0, s*0.5, s*-0.7); g.add(f); });
+  // big caudal tail at +z
+  const tail=new THREE.Mesh(new THREE.ConeGeometry(2.1,3.8,3),skin);
+  tail.scale.set(0.18,1.6,1); tail.rotation.x=Math.PI/2; tail.position.set(0,0.35,5.5); g.add(tail);
+  // checker-ish grid of white dots across the dark dorsal/flanks
+  for(let zi=-5;zi<=4;zi++)for(let xi=-3;xi<=3;xi++){
+    if(Math.random()<0.18) continue;
+    const s=new THREE.Mesh(new THREE.SphereGeometry(0.085,6,6),spotMat);
+    const t=zi*0.9+(Math.random()-0.5)*0.35;
+    const rx=Math.max(0.3, 1.9*Math.sqrt(Math.max(0.05,1-(t/5.0)**2)));  // body half-width here
+    const u=xi/3;                       // -1..1 across width
+    s.position.set(u*rx, 0.25+Math.sqrt(Math.max(0,1-u*u))*0.95, t);
+    g.add(s);
+  }
+  // a few more scattered spots on the sides
+  for(let i=0;i<28;i++){
+    const s=new THREE.Mesh(new THREE.SphereGeometry(0.075,6,6),spotMat);
+    const zz=(Math.random()-0.35)*8.5, side=Math.random()<.5?-1:1, a=Math.random()*0.8+0.05;
+    s.position.set(side*Math.sin(a)*1.8, Math.cos(a)*0.7, zz); g.add(s);
+  }
+  // self-glow so it reads as a menace in the dark
+  const light=new THREE.PointLight(0x9cc4ff, 1.3, 34, 2); light.position.set(0,1.4,-2); g.add(light);
+  // big additive aura — visible from far across the void
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:HALO_TEX, color:0x9cc4ff,
+    transparent:true, opacity:0.7, depthWrite:false, blending:THREE.AdditiveBlending, fog:false}));
+  halo.scale.set(26,26,1); halo.position.set(0,0.5,-1); g.add(halo);
+  g.scale.setScalar(1.9); g.visible=false; scene.add(g);
+  return { g, mouthGrp, light, halo, active:false, x:0, z:0, age:0, warn1:false, warn2:false };
+})();
+function activateWhale(){
+  whale.active=true; whale.age=0;
+  // emerge from deep in the void (the open side, away from the maze), far off,
+  // so it grows from a distant glow into a charging shape
+  let ax=player.x-MAZE_CX, az=player.z-MAZE_CZ; let al=Math.hypot(ax,az);
+  if(al<1){ ax=-Math.sin(player.yaw); az=-Math.cos(player.yaw); al=1; }
+  const d=50;
+  whale.x=player.x + ax/al*d; whale.z=player.z + az/al*d;
+  whale.g.position.set(whale.x, 3.4, whale.z); whale.g.visible=true;
+  toast('VOID SHARK!', 'it has your scent — run inside', '#7fe0ff');
+  if(typeof tone==='function'){ tone(95,40,1.4,'sawtooth',.2); setTimeout(()=>tone(70,30,1.1,'sawtooth',.16),300); }
+}
+function deactivateWhale(){ whale.active=false; whale.g.visible=false; }
+function updateWhale(dt){
+  if(!whale.active) return;
+  whale.age+=dt;
+  const dx=player.x-whale.x, dz=player.z-whale.z, dist=Math.hypot(dx,dz)||1;
+  const sp = 4 + Math.min(1, whale.age/5)*12;          // long approach from afar, then a charge
+  whale.x+=dx/dist*sp*dt; whale.z+=dz/dist*sp*dt;
+  const cruiseY = 2.4 + Math.max(0, 1-whale.age/4)*1.4;  // glides down as it nears
+  whale.g.position.set(whale.x, cruiseY+Math.sin(state.t*1.5)*0.45, whale.z);
+  whale.g.rotation.y=Math.atan2(-dx,-dz);             // front (-z) faces the player
+  whale.g.rotation.z=Math.sin(state.t*2.4)*0.12;      // roll
+  whale.mouthGrp.scale.y = 1 + Math.max(0.15, 1.4 - dist*0.14);  // jaws gape as it nears
+  whale.halo.material.opacity = 0.4 + 0.2*Math.sin(state.t*6);   // pulsing aura
+  if(dist<3.2 && state.phase==='play') killPlayer('whale');
+}
+
+
+
+function lerpAngle(a,b,t){            // shortest-path angular interpolation
+  let d=b-a;
+  d=((d+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;
+  return a+d*t;
+}
+
+// Pac-Man avatar (third-person, camera sits just behind it)
+const pacman=(function(){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xffe23d,emissive:0x6a5400,
+    emissiveIntensity:.45,roughness:.35,metalness:.05});
+  const R=0.58;
+  const upper=new THREE.Group(), lower=new THREE.Group();
+  upper.add(new THREE.Mesh(new THREE.SphereGeometry(R,28,16,0,Math.PI*2,0,Math.PI/2),mat));
+  lower.add(new THREE.Mesh(new THREE.SphereGeometry(R,28,16,0,Math.PI*2,Math.PI/2,Math.PI/2),mat));
+  g.add(upper,lower);
+  const eyeM=new THREE.MeshBasicMaterial({color:0x101018});
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(.07,10,10),eyeM);
+  eye.position.set(0.20,0.34,-0.10); g.add(eye);
+  g.userData={upper,lower};
+  scene.add(g);
+  return g;
+})();
+
+/* ---- grid movement (lane-locked, Pac-Man style) ---- */
+const DIR4=[{dr:-1,dc:0},{dr:0,dc:1},{dr:1,dc:0},{dr:0,dc:-1}]; // N,E,S,W
+const YAW4=[0,-Math.PI/2,Math.PI,Math.PI/2];
+const turnR=i=>(i+1)%4, turnL=i=>(i+3)%4, turnB=i=>(i+2)%4;
+
+function placePlayer(){
+  player.sr=PLAYER_START.r; player.sc=PLAYER_START.c;
+  player.tr=player.sr; player.tc=player.sc; player.seg=0;
+  player.dir=null; player.want=null; player.prevBack=false; player.prevTurnSign=0;
+  player.x=cx(player.sc); player.z=cz(player.sr);
+  player.facing=[1,3,0,2].find(i=>isOpen(player.sr+DIR4[i].dr, player.sc+DIR4[i].dc));
+  if(player.facing==null) player.facing=1;
+  player.yaw=YAW4[player.facing];
+  player.camBd=null;   // snap camera distance after a teleport
+}
+function decideDir(){
+  for(const d of [player.want, player.dir]){
+    if(d==null) continue;
+    const nr=player.sr+DIR4[d].dr, nc=player.sc+DIR4[d].dc;
+    if(playerOpen(nr,nc)){ player.dir=d; player.facing=d; player.tr=nr; player.tc=nc; return; }
+  }
+  player.dir=null; player.tr=player.sr; player.tc=player.sc;
+}
+
+function collideMove(nx,nz){
+  // axis-separated circle vs wall AABBs
+  const r=player.radius;
+  let x=nx, z=player.z;
+  let cc=Math.round(x/CELL), rr=Math.round(z/CELL);
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    const wr=rr+dr,wc=cc+dc; if(!isWall(wr,wc))continue;
+    const wx=cx(wc), wz=cz(wr);
+    if(Math.abs(z-wz)<CELL/2+r && Math.abs(x-wx)<CELL/2+r && Math.abs(z-wz)<CELL/2){
+      x = x>wx ? wx+CELL/2+r : wx-CELL/2-r;
+    }
+  }
+  z=nz;
+  cc=Math.round(x/CELL); rr=Math.round(z/CELL);
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    const wr=rr+dr,wc=cc+dc; if(!isWall(wr,wc))continue;
+    const wx=cx(wc), wz=cz(wr);
+    if(Math.abs(x-wx)<CELL/2+r && Math.abs(z-wz)<CELL/2+r && Math.abs(x-wx)<CELL/2){
+      z = z>wz ? wz+CELL/2+r : wz-CELL/2-r;
+    }
+  }
+  player.x=x; player.z=z;
+}
+
+/* ============================= STATE / HUD ============================= */
+const state={ phase:'menu', t:0, score:0, lives:3, level:1,
+  power:0, powerMax:8, ghostSpeed:4.0, combo:0, modeTimer:0, scatter:true,
+  freeze:0, pelletReveal:0, outsideT:0 };
+
+// speed presets (player tiles/s, ghost base tiles/s)
+const SPEEDS={
+  slow:  {player:4.2, ghost:3.0, label:'SLOW'},
+  medium:{player:5.4, ghost:4.0, label:'MEDIUM'},
+  fast:  {player:7.0, ghost:5.3, label:'FAST'}
+};
+let speedKey='medium';
+
+// local (per-device) leaderboard, separate board per speed
+const LB_KEY='mazerunner_lb_v2';
+let memLB=null;                       // in-memory fallback if storage is blocked
+function lbLoad(){
+  try{ const r=localStorage.getItem(LB_KEY); return r?JSON.parse(r):{}; }
+  catch(e){ return memLB||{}; }
+}
+function lbSave(o){
+  memLB=o;
+  try{ localStorage.setItem(LB_KEY, JSON.stringify(o)); }catch(e){}
+}
+function lbBoard(key){ const o=lbLoad(); return (o[key]||[]); }
+function lbQualifies(key,score){
+  const b=lbBoard(key); return score>0 && (b.length<8 || score>b[b.length-1].score);
+}
+function lbAdd(key,name,score){
+  const o=lbLoad(); const b=o[key]||[];
+  const entry={name:(name||'YOU').toUpperCase().slice(0,3), score, t:Date.now()};
+  b.push(entry); b.sort((a,c)=>c.score-a.score); o[key]=b.slice(0,8);
+  lbSave(o); return entry;
+}
+function renderBoard(listEl, key, freshEntry){
+  const b=lbBoard(key);
+  if(!b.length){ listEl.innerHTML='<div class="empty">— NO SCORES YET —</div>'; return; }
+  listEl.innerHTML=b.map(e=>{
+    const fresh = freshEntry && e.t===freshEntry.t && e.score===freshEntry.score;
+    return '<li class="'+(fresh?'fresh':'')+'"><span class="nm">'+e.name+
+           '</span><span class="sc">'+e.score+'</span></li>';
+  }).join('');
+}
+
+const $=id=>document.getElementById(id);
+const scoreEl=$('score'), livesEl=$('lives'), levelEl=$('level'),
+  powerBar=$('powerbar'), powerFill=$('powerfill'),
+  vig=$('vig'), flash=$('flash');
+
+// build the segmented pellet bar: one fixed slot per region (sized to its pellet share),
+// each with a left-anchored fill that shrinks from the right as that colour is eaten
+const pelletFills=(function(){
+  const bar=$('pelletbar'), fills=[];
+  for(let k=0;k<NSEG;k++){
+    const h=(regionHue(k)*360).toFixed(0);
+    const slot=document.createElement('div'); slot.className='slot';
+    slot.style.flex=(regionTotal[k]||1)+' 0 0';                 // fixed share of width
+    slot.style.background='hsla('+h+',55%,50%,0.09)';           // very faint track
+    const fill=document.createElement('div'); fill.className='fill';
+    fill.style.backgroundColor='hsl('+h+',88%,62%)';
+    fill.style.boxShadow='0 0 6px hsl('+h+',85%,55%)';
+    slot.appendChild(fill); bar.appendChild(slot); fills.push(fill);
+  }
+  return fills;
+})();
+
+function hud(){
+  scoreEl.textContent=state.score;
+  levelEl.textContent='L'+state.level;
+  livesEl.innerHTML='<span>●</span>'.repeat(Math.max(state.lives,0));
+  for(let k=0;k<NSEG;k++)
+    pelletFills[k].style.width=(regionTotal[k]?regionLeft[k]/regionTotal[k]*100:0)+'%';
+}
+
+/* ---------- toast notifications ---------- */
+const REGION_NAME=['ORANGES','LIMES','GREENS','BLUES','PURPLES','PINKS'];
+const REGION_CSS=k=>'hsl('+(regionHue(k)*360).toFixed(0)+',90%,64%)';
+const toastEl=$('toast'), toastM=toastEl.querySelector('.m'), toastS=toastEl.querySelector('.s');
+let toastQueue=[], toastT=0, toastActive=false, toastCool=0;
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function toast(main, sub, color){ toastQueue.push({main, sub, color:color||'#ffd866'}); }
+function pumpToasts(dt){
+  if(toastActive){
+    toastT-=dt;
+    if(toastT<=0){ toastActive=false; toastEl.classList.remove('show'); toastCool=0.22; }
+    return;
+  }
+  if(toastCool>0){ toastCool-=dt; return; }
+  if(toastQueue.length){
+    const t=toastQueue.shift();
+    toastM.textContent=t.main; toastM.style.color=t.color;
+    toastS.textContent=t.sub||'';
+    toastEl.classList.add('show'); toastActive=true; toastT=1.7;
+  }
+}
+function clearToasts(){ toastQueue=[]; toastActive=false; toastT=0; toastEl.classList.remove('show'); }
+
+// region milestone lines
+const CLEAR_LINES=[
+  c=>[c+' CLEARED!','not a crumb left'],
+  c=>['ALL '+c+' GONE!','your dentist is worried'],
+  c=>[c+': DEMOLISHED','five-star munching'],
+  c=>['BYE BYE '+c+'!','they never stood a chance'],
+];
+const LOW_SUBS=['keep chomping','so close','you got this','nom nom nom','almost!'];
+function pelletMilestone(reg, left){
+  const name=REGION_NAME[reg], col=REGION_CSS(reg);
+  if(left===0){ const f=pick(CLEAR_LINES)(name); toast(f[0], f[1], col); }
+  else if(left===1) toast('LAST '+name.replace(/S$/,'')+'!', 'finish the job', col);
+  else if(left===5) toast('5 MORE '+name+'!', pick(LOW_SUBS), col);
+  else if(left===15) toast(left+' '+name+' LEFT', pick(LOW_SUBS), col);
+}
+
+/* indicators DOM */
+const indsWrap=$('inds');
+const inds=GHOST_DEFS.map((d,i)=>{
+  const el=document.createElement('div');
+  el.className='ind'; el.style.setProperty('--gc',d.css);
+  el.innerHTML=`<div class="spin"><div class="chev"></div></div>
+    <div class="tag"><div class="dot"></div><div class="dist"></div></div>`;
+  indsWrap.appendChild(el);
+  return {el, spin:el.querySelector('.spin'), chev:el.querySelector('.chev'),
+    tag:el.querySelector('.tag'), dist:el.querySelector('.dist')};
+});
+const V=new THREE.Vector3(), Q=new THREE.Quaternion();
+const sharkInd=(function(){
+  const el=document.createElement('div');
+  el.className='ind shark'; el.style.setProperty('--gc','#ff5e6e');
+  el.innerHTML=`<div class="spin"><div class="chev"></div></div>
+    <div class="tag"><div class="dot"></div><div class="dist"></div></div>`;
+  el.style.display='none'; indsWrap.appendChild(el);
+  return {el, spin:el.querySelector('.spin'), chev:el.querySelector('.chev'),
+    tag:el.querySelector('.tag'), dist:el.querySelector('.dist')};
+})();
+
+/* ---------- North compass (always points to world-north) ---------- */
+const compassEl=$('compass');
+const compassInner=compassEl.querySelector('.cinner');
+const compassN=compassEl.querySelector('.nlbl');
+function updateCompass(){
+  Q.copy(camera.quaternion).invert();
+  V.set(0,0,-1).applyQuaternion(Q);        // world north = -Z
+  const ang=Math.atan2(V.x,-V.z);          // bearing of north relative to view
+  compassInner.style.transform='rotate('+ang+'rad)';
+  compassN.style.transform='translateX(-50%) rotate('+(-ang)+'rad)';  // keep glyph upright
+}
+
+/* ---------- minimap (layout + Pac-Man only; no ghosts, no pellets) ---------- */
+const mini=$('minimap'), mctx=mini.getContext('2d');
+const radarTimer=$('radartimer'), outWarn=$('outwarn');
+const MM=6, MM_W=COLS*MM, MM_H=ROWS*MM, MDPR=Math.min(devicePixelRatio||1,2);
+mini.style.width=MM_W+'px'; mini.style.height=MM_H+'px';
+mini.width=MM_W*MDPR; mini.height=MM_H*MDPR; mctx.scale(MDPR,MDPR);
+const MM_MIDR=(ROWS-1)/2, MM_MIDC=(COLS-1)/2;
+function drawMinimap(){
+  mctx.clearRect(0,0,MM_W,MM_H);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(grid[r][c]==='#'){
+    const hue=(regionHue(regionOf(r,c))*360).toFixed(0);   // discrete region colour
+    mctx.fillStyle='hsl('+hue+',50%,46%)';
+    mctx.fillRect(c*MM+0.4, r*MM+0.4, MM-0.8, MM-0.8);
+  }
+  // remaining pellets revealed: late game (<=10 left), briefly after eating a
+  // ghost, or the whole time you're outside the maze (a perk of the backdoor)
+  if(pelletsLeft<=10 || state.t<state.pelletReveal || state.outsideT>0){
+    const pulse=0.55+0.45*Math.sin(state.t*5);
+    mctx.save(); mctx.shadowBlur=5;
+    for(const k in pelletIndex){
+      const ci=k.indexOf(','), r=+k.slice(0,ci), c=+k.slice(ci+1);
+      const col='hsl('+(regionHue(regionOf(r,c))*360).toFixed(0)+',90%,'+(55+pulse*15)+'%)';
+      mctx.fillStyle=col; mctx.shadowColor=col;
+      mctx.beginPath(); mctx.arc((c+0.5)*MM,(r+0.5)*MM, 1.7+pulse*0.8, 0, 7); mctx.fill();
+    }
+    powerPellets.forEach(p=>{ if(!p.eaten){
+      mctx.fillStyle='#ffd866'; mctx.shadowColor='#ffd866';
+      mctx.beginPath(); mctx.arc((p.c+0.5)*MM,(p.r+0.5)*MM, 2.6, 0, 7); mctx.fill();
+    }});
+    mctx.restore();
+  }
+  // Pac-Man marker with heading
+  const px=(player.x/CELL+0.5)*MM, py=(player.z/CELL+0.5)*MM;
+  const a=Math.atan2(-Math.cos(player.yaw), -Math.sin(player.yaw)); // (fz,fx)
+  mctx.save(); mctx.translate(px,py); mctx.rotate(a);
+  mctx.fillStyle='#ffe23d';
+  mctx.shadowColor='#ffd23d'; mctx.shadowBlur=6;
+  mctx.beginPath(); mctx.moveTo(5.5,0); mctx.lineTo(-4,-3.6); mctx.lineTo(-4,3.6);
+  mctx.closePath(); mctx.fill();
+  mctx.restore();
+  // static North label (the map is always north-up)
+  mctx.save();
+  mctx.font='bold 9px Arial,sans-serif'; mctx.textAlign='center'; mctx.textBaseline='top';
+  mctx.fillStyle='#fff'; mctx.shadowColor='#000'; mctx.shadowBlur=3;
+  mctx.fillText('N', MM_W/2, 1.5);
+  mctx.restore();
+}
+
+function updateIndicators(){
+  const W=innerWidth, H=innerHeight, m=46,
+    topM = 64;                                   // keep clear of HUD bar
+  Q.copy(camera.quaternion).invert();
+  let nearest=1e9;
+  ghosts.forEach((g,i)=>{
+    const ind=inds[i];
+    const hostile = !isFright(g) && g.mode!=='eaten';
+    // camera-space direction
+    V.set(g.x-player.x, 0, g.z-player.z);
+    const worldDist=V.length()/CELL;
+    V.applyQuaternion(Q);
+    const inFront = V.z < 0;
+    const ang=Math.atan2(V.x,-V.z);              // 0 = dead ahead
+    if(hostile && worldDist<nearest) nearest=worldDist;
+    // try screen projection
+    V.set(g.x, 1.0, g.z).project(camera);
+    const inView = inFront && Math.abs(V.x)<0.90 && Math.abs(V.y)<0.82;
+    let px,py;
+    if(inView){
+      ind.el.classList.add('onscreen');
+      px=(V.x+1)/2*W; py=(1-V.y)/2*H;
+    } else {
+      ind.el.classList.remove('onscreen');
+      const dx=Math.sin(ang), dy=-Math.cos(ang);
+      const hx=W/2-m, hyTop=H/2-topM, hyBot=H/2-m;
+      const hy = dy<0 ? hyTop : hyBot;
+      const t=Math.min( hx/Math.max(Math.abs(dx),1e-4),
+                        hy/Math.max(Math.abs(dy),1e-4) );
+      px=W/2+dx*t; py=H/2+dy*t;
+      ind.spin.style.transform='rotate('+ang+'rad)';
+    }
+    ind.el.style.transform='translate('+px+'px,'+py+'px)';
+    ind.dist.textContent=Math.round(worldDist);
+    // closer ghost → bigger icon (clamped)
+    const s=Math.max(0.7, Math.min(2.0, 8.5/(worldDist+3)));
+    ind.tag.style.transform='translate(-50%,-50%) scale('+s.toFixed(3)+')';
+    ind.chev.style.transform='scale('+s.toFixed(3)+')';
+    ind.el.classList.toggle('frightened', isFright(g));
+    ind.el.classList.toggle('eaten', g.mode==='eaten');
+    ind.el.classList.toggle('near', hostile && worldDist<4.2);
+  });
+  // void shark indicator — always visible while it's hunting
+  if(whale.active){
+    sharkInd.el.style.display='';
+    V.set(whale.x-player.x, 0, whale.z-player.z);
+    const wd=V.length()/CELL; V.applyQuaternion(Q);
+    const inFront=V.z<0, ang=Math.atan2(V.x,-V.z);
+    if(wd<nearest) nearest=wd;
+    V.set(whale.x, 1.5, whale.z).project(camera);
+    const inView=inFront && Math.abs(V.x)<0.92 && Math.abs(V.y)<0.85;
+    let px,py;
+    if(inView){ sharkInd.el.classList.add('onscreen'); px=(V.x+1)/2*W; py=(1-V.y)/2*H; }
+    else { sharkInd.el.classList.remove('onscreen');
+      const dx=Math.sin(ang), dy=-Math.cos(ang);
+      const hx=W/2-m, hyTop=H/2-topM, hyBot=H/2-m, hy=dy<0?hyTop:hyBot;
+      const t=Math.min(hx/Math.max(Math.abs(dx),1e-4), hy/Math.max(Math.abs(dy),1e-4));
+      px=W/2+dx*t; py=H/2+dy*t; sharkInd.spin.style.transform='rotate('+ang+'rad)'; }
+    sharkInd.el.style.transform='translate('+px+'px,'+py+'px)';
+    sharkInd.dist.textContent=Math.round(wd);
+    const s=Math.max(0.95, Math.min(2.6, 12/(wd+3)));
+    sharkInd.tag.style.transform='translate(-50%,-50%) scale('+s.toFixed(3)+')';
+    sharkInd.chev.style.transform='scale('+s.toFixed(3)+')';
+    sharkInd.el.classList.toggle('near', wd<5);
+  } else sharkInd.el.style.display='none';
+  // danger vignette
+  if(state.phase==='play' && nearest<4.5){
+    vig.style.opacity=(1-nearest/4.5)*0.95;
+  } else vig.style.opacity=0;
+}
+
+/* ============================= INPUT ============================= */
+/* Single control: one floating stick (appears wherever you press).
+   Push up/down to move forward/back, push left/right to turn. */
+const input={ steer:0, drive:0, keys:{} };
+const stickBase=$('stickbase'), stickNub=$('sticknub');
+let driveTouch=null;
+const touchStart={};
+
+addEventListener('touchstart',e=>{
+  audioInit();
+  if(state.phase!=='play') return;       // let overlay buttons/scroll work
+  if(driveTouch!==null) return;
+  const t=e.changedTouches[0];
+  driveTouch=t.identifier;
+  touchStart[t.identifier]={x:t.clientX,y:t.clientY};
+  stickBase.style.display='block';
+  stickBase.style.left=(t.clientX-54)+'px';
+  stickBase.style.top=(t.clientY-54)+'px';
+  stickNub.style.transform='translate(-50%,-50%)';
+},{passive:false});
+
+addEventListener('touchmove',e=>{
+  if(state.phase!=='play' || driveTouch===null) return;   // allow overlay scrolling
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier!==driveTouch) continue;
+    const s=touchStart[t.identifier]; if(!s)continue;
+    let dx=t.clientX-s.x, dy=t.clientY-s.y;
+    const len=Math.hypot(dx,dy), max=52;
+    if(len>max){dx*=max/len;dy*=max/len;}
+    stickNub.style.transform='translate(calc(-50% + '+dx+'px),calc(-50% + '+dy+'px))';
+    input.steer = dx/max;        // left/right = turn
+    input.drive = -dy/max;       // up = forward
+  }
+},{passive:false});
+
+function endTouch(e){
+  for(const t of e.changedTouches){
+    if(t.identifier===driveTouch){
+      driveTouch=null; input.steer=input.drive=0;
+      stickBase.style.display='none';
+    }
+    delete touchStart[t.identifier];
+  }
+}
+addEventListener('touchend',endTouch); addEventListener('touchcancel',endTouch);
+
+// desktop fallback: W/S or up/down to move, A/D or left/right to turn
+addEventListener('keydown',e=>{input.keys[e.code]=true; audioInit();});
+addEventListener('keyup',e=>{input.keys[e.code]=false;});
+addEventListener('contextmenu',e=>e.preventDefault());
+
+/* ============================= GAME FLOW ============================= */
+function resetPellets(){
+  const m4=new THREE.Matrix4();
+  for(const k in pelletIndex) delete pelletIndex[k];     // rebuild the lookup
+  pellets.forEach((p,i)=>{ m4.makeTranslation(cx(p.c),.7,cz(p.r));
+    pelletMesh.setMatrixAt(i,m4); pelletIndex[p.r+','+p.c]=i; });
+  pelletMesh.instanceMatrix.needsUpdate=true;
+  powerPellets.forEach(p=>{p.eaten=false;p.mesh.visible=true;p.mesh.scale.setScalar(1);});
+  pelletsLeft=pelletTotal;
+  regionLeft=regionTotal.slice();
+}
+function resetRound(){
+  placePlayer();
+  player.invuln=2.5;
+  state.power=0; state.combo=0; state.modeTimer=0; state.scatter=true;
+  state.pelletReveal=Math.max(state.pelletReveal, state.t+7);   // 7s reveal on (re)spawn
+  state.outsideT=0; deactivateWhale();
+  ghosts.forEach((g,i)=>ghostReset(g, 1+i*2.0));
+  powerBar.classList.remove('on');
+}
+function newGame(){
+  state.score=0; state.lives=3; state.level=1;
+  state.ghostSpeed=SPEEDS[speedKey].ghost; state.powerMax=8;
+  player.speed=SPEEDS[speedKey].player;
+  state.pelletReveal=0;
+  clearToasts();
+  resetPellets(); resetRound();
+  state.phase='play'; hud();
+}
+function nextLevel(){
+  state.level++;
+  const base=SPEEDS[speedKey].ghost;
+  state.ghostSpeed=Math.min(base*1.6, state.ghostSpeed*1.09);
+  state.powerMax=Math.max(4, state.powerMax*0.85);
+  resetPellets(); resetRound();
+  state.phase='play'; hud();
+}
+function showOverlay(id){
+  ['startov','rulesov','deathov','gameov','winov','pauseov'].forEach(o=>$(o).classList.add('hidden'));
+  if(id)$(id).classList.remove('hidden');
+  const inGame = !id || id==='deathov';
+  $('pausebtn').classList.toggle('hidden', !inGame);
+  $('ctrlhint').classList.toggle('hidden', !inGame);
+}
+
+// ---- speed selector ----
+function setSpeed(k){
+  speedKey=k;
+  document.querySelectorAll('#speedsel button').forEach(b=>
+    b.classList.toggle('on', b.dataset.sp===k));
+  const lbl=SPEEDS[k].label;
+  $('lbspeedlabel').textContent=lbl; $('lbspeedlabel2').textContent=lbl;
+  renderBoard($('lblist'), k);
+  if(typeof drawLeaderboardMonument==='function') drawLeaderboardMonument();
+}
+document.querySelectorAll('#speedsel button').forEach(b=>
+  b.onclick=()=>{ audioInit(); setSpeed(b.dataset.sp); });
+
+$('startbtn').onclick=()=>{ audioInit(); newGame(); showOverlay(null); };
+$('rulesbtn').onclick=()=>{ $('startov').classList.add('hidden'); $('rulesov').classList.remove('hidden'); };
+$('rulesback').onclick=()=>{ $('rulesov').classList.add('hidden'); $('startov').classList.remove('hidden'); };
+$('retrybtn').onclick=()=>{ newGame(); showOverlay(null); };
+$('nextbtn').onclick =()=>{ nextLevel(); showOverlay(null); };
+$('resumebtn').onclick=()=>{ state.phase='play'; showOverlay(null); };
+$('pausebtn').onclick=()=>{ if(state.phase==='play'){state.phase='pause';showOverlay('pauseov');} };
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden && state.phase==='play'){state.phase='pause';showOverlay('pauseov');}
+});
+
+// ---- game-over leaderboard handling ----
+let pendingScore=0;
+function showGameOver(){
+  $('bigscore').textContent='SCORE '+state.score+'  ·  '+SPEEDS[speedKey].label;
+  pendingScore=state.score;
+  const qualifies=lbQualifies(speedKey,pendingScore);
+  $('newhigh').classList.toggle('hidden', !qualifies);
+  if(qualifies){ $('initials').value=''; setTimeout(()=>$('initials').focus(),50); }
+  renderBoard($('lblist2'), speedKey);
+  state.phase='over'; showOverlay('gameov');
+}
+function submitScore(){
+  if(!pendingScore) return;
+  const entry=lbAdd(speedKey, $('initials').value||'YOU', pendingScore);
+  pendingScore=0;
+  $('newhigh').classList.add('hidden');
+  renderBoard($('lblist2'), speedKey, entry);
+  renderBoard($('lblist'), speedKey, entry);   // keep start board in sync
+  drawLeaderboardMonument();
+}
+$('savebtn').onclick=submitScore;
+$('initials').addEventListener('keydown',e=>{ if(e.key==='Enter') submitScore(); });
+
+function killPlayer(cause){
+  sfx.death(); clearToasts();
+  deactivateWhale(); state.outsideT=0;
+  $('deathtitle').textContent = cause==='whale' ? 'DEVOURED!' : 'CAUGHT!';
+  state.lives--; hud();
+  flash.style.opacity=.7;
+  state.phase='dying'; state.freeze=1.4;
+  showOverlay('deathov');
+  $('deathmsg').textContent = state.lives>0
+    ? (cause==='whale'?'the void shark got you · ':'')+state.lives+(state.lives===1?' LIFE LEFT':' LIVES LEFT') : '';
+  setTimeout(()=>{
+    flash.style.opacity=0;
+    if(state.lives<=0){ showGameOver(); }
+    else { resetRound(); state.phase='play'; showOverlay(null); }
+  },1400);
+}
+function clearLevel(){
+  sfx.win(); clearToasts();
+  state.phase='won';
+  $('winmsg').textContent='SCORE '+state.score;
+  showOverlay('winov');
+}
+
+/* ============================= LOOP ============================= */
+const clock=new THREE.Clock();
+function frame(){
+  requestAnimationFrame(frame);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(state.phase==='play'){
+    state.t+=dt;
+    // scatter/chase rhythm
+    state.modeTimer+=dt;
+    const span=state.scatter?6:20;
+    if(state.modeTimer>span){ state.modeTimer=0; state.scatter=!state.scatter; }
+    ghosts.forEach(g=>{ if(g.mode!=='eaten'&&g.mode!=='wait')
+      g.mode = state.scatter?'scatter':'hunt'; });
+
+    if(player.invuln>0) player.invuln-=dt;
+    pumpToasts(dt);
+
+    // outside-the-maze danger: the void shark wakes after a minute out
+    if(isOutsidePos(player.x,player.z)){
+      state.outsideT+=dt;
+      if(!whale.active){
+        if(state.outsideT>40 && !whale.warn1){ whale.warn1=true;
+          toast('SOMETHING STIRS', 'out in the dark...', '#7fe0ff'); }
+        if(state.outsideT>=54 && !whale.warn2){ whale.warn2=true;
+          toast('IT WAKES', 'get back inside!', '#7fe0ff'); }
+        if(state.outsideT>=60) activateWhale();
+      }
+    } else if(state.outsideT>0 || whale.active){
+      state.outsideT=0; whale.warn1=whale.warn2=false; deactivateWhale();
+    }
+    updateWhale(dt);
+
+    // ---- movement: lane-locked grid (camera-relative intent) ----
+    let ax=input.steer, ay=input.drive;     // right+, forward+
+    if(input.keys.KeyW||input.keys.ArrowUp)   ay=1;
+    if(input.keys.KeyS||input.keys.ArrowDown) ay=-1;
+    if(input.keys.KeyA||input.keys.ArrowLeft) ax=-1;
+    if(input.keys.KeyD||input.keys.ArrowRight)ax=1;
+    // detect a turn intent — a modest sideways push, edge-triggered (one turn per push)
+    let turnSign=0;
+    if(Math.abs(ax)>0.34 || (Math.hypot(ax,ay)>0.2 && Math.abs(ax)>Math.abs(ay)*0.7))
+      turnSign = ax>0?1:-1;
+    if(turnSign!==0 && turnSign!==player.prevTurnSign){     // fresh push
+      player.bufTurn = turnSign>0?turnR(player.facing):turnL(player.facing);
+      player.bufTimer=0.42;
+    } else if(player.bufTimer>0) player.bufTimer-=dt;
+    player.prevTurnSign=turnSign;
+    // resolve desired direction: buffered turn wins, else forward keeps heading
+    let want = (player.bufTimer>0) ? player.bufTurn
+             : (ay>0.25 && Math.abs(ay)>=Math.abs(ax) ? player.facing : null);
+    player.want=want;
+    // reverse (pull back), edge-triggered so a held stick can't oscillate
+    const backNow = ay<-0.45 && Math.abs(ay)>=Math.abs(ax);
+    if(backNow && !player.prevBack){
+      if(player.dir!=null){
+        // moving: flip instantly within the current lane
+        const sr=player.sr,sc=player.sc;
+        player.sr=player.tr; player.sc=player.tc; player.tr=sr; player.tc=sc;
+        player.seg=1-player.seg;
+        player.dir=turnB(player.dir); player.facing=player.dir;
+      } else {
+        // stopped (e.g. a dead end): set off back the way we came
+        player.want=turnB(player.facing);
+      }
+    }
+    player.prevBack=backNow;
+
+    if(player.seg<=0) decideDir();
+    if(player.dir!=null){
+      player.seg += (player.speed*dt)/CELL;
+      let guard=0;
+      while(player.seg>=1 && guard++<4){
+        player.seg-=1;
+        player.sr=player.tr; player.sc=player.tc;
+        decideDir();
+        if(player.dir==null){ player.seg=0; break; }
+      }
+    }
+    if(player.dir===player.bufTurn) player.bufTimer=0;   // consumed the buffered turn
+    // interpolate position along current lane segment (auto-centered)
+    player.x = cx(player.sc) + (cx(player.tc)-cx(player.sc))*player.seg;
+    player.z = cz(player.sr) + (cz(player.tr)-cz(player.sr))*player.seg;
+    // ease camera/avatar heading toward facing — bigger turns settle faster
+    {
+      const target=YAW4[player.facing];
+      let d=target-player.yaw;
+      d=((d+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;  // shortest delta
+      const maxStep=(7 + 7*Math.min(Math.abs(d)/Math.PI,1))*dt;   // up to ~14 rad/s for a 180
+      let step=d*(1-Math.exp(-19*dt));
+      step=Math.max(-maxStep,Math.min(maxStep,step));
+      player.yaw+=step;
+    }
+
+    // pellets
+    const pc=toCell(player.x,player.z);
+    const key=pc.r+','+pc.c;
+    if(key in pelletIndex){
+      const id=pelletIndex[key];
+      pelletMesh.setMatrixAt(id,ZERO_M4);
+      pelletMesh.instanceMatrix.needsUpdate=true;
+      delete pelletIndex[key];
+      const reg=regionOfPellet[id];
+      if(regionLeft[reg]>0) regionLeft[reg]--;
+      pelletsLeft--; state.score+=10; sfx.pellet(); hud();
+      if(pelletsLeft>0) pelletMilestone(reg, regionLeft[reg]);
+      if(pelletsLeft<=0){ clearLevel(); }
+    }
+    powerPellets.forEach(p=>{
+      if(!p.eaten && p.r===pc.r && p.c===pc.c){
+        p.eaten=true; p.mesh.visible=false;
+        state.score+=50; state.power=state.powerMax; state.combo=0;
+        sfx.power(); powerBar.classList.add('on');
+        powerFill.style.width='100%';
+        ghosts.forEach(g=>{ if(g.mode!=='eaten') g.frightened=true; setGhostSkin(g); });
+        toast('POWERED UP!', pick(['go hunt the hunters','turn the tables','they should run now']), '#3a6bff');
+        hud();
+      } else if(!p.eaten){
+        p.mesh.scale.setScalar(1+Math.sin(state.t*5)*.18);
+      }
+    });
+    if(state.power>0){
+      state.power-=dt;
+      powerFill.style.width=(state.power/state.powerMax*100)+'%';
+      if(state.power<=0){ state.power=0; powerBar.classList.remove('on');
+        state.combo=0; ghosts.forEach(g=>{g.frightened=false; setGhostSkin(g);}); }
+    }
+
+    // ghosts + collisions
+    ghosts.forEach(g=>{
+      updateGhost(g,dt);
+      const d=Math.hypot(g.x-player.x, g.z-player.z);
+      if(d<1.05 && g.mode!=='eaten' && g.mode!=='wait'){
+        if(isFright(g)){
+          state.combo++;
+          state.score+=200*Math.pow(2,state.combo-1);
+          g.mode='eaten'; g.frightened=false; setGhostSkin(g); sfx.eatGhost(); hud();
+          const inc=[5,7,9,12][Math.min(state.combo-1,3)];        // stacking radar time
+          state.pelletReveal=Math.max(state.pelletReveal,state.t)+inc;
+          const tail=(state.combo>1?'combo x'+state.combo+'! · ':'')+'+'+inc+'s radar';
+          toast('CHOMP!', tail, '#3a6bff');
+        } else if(player.invuln<=0){
+          killPlayer();
+        }
+      }
+    });
+  }
+
+  // avatar + third-person chase camera
+  const fwdX=-Math.sin(player.yaw), fwdZ=-Math.cos(player.yaw);
+  pacman.position.set(player.x, 0.62, player.z);
+  pacman.rotation.y=player.yaw;
+  const moving = player.dir!=null;
+  const chomp = moving ? Math.abs(Math.sin(state.t*11))*0.42 : 0.06;
+  pacman.userData.upper.rotation.x = -chomp;
+  pacman.userData.lower.rotation.x =  chomp;
+  pacman.visible = !(state.phase==='dying' || state.phase==='over');
+
+  // pull the camera in if a real wall is behind, so we don't see through it
+  let bd=3.0;
+  for(let i=0;i<10;i++){
+    const c=toCell(player.x-fwdX*bd, player.z-fwdZ*bd);
+    if(!isSolid(c.r,c.c)) break;
+    bd-=0.2;
+  }
+  // smooth the distance so it eases instead of popping
+  player.camBd = player.camBd==null ? bd : player.camBd + (bd-player.camBd)*Math.min(1,8*dt);
+  const cb=player.camBd;
+  const shimmer = (player.invuln>0 && state.phase==='play') ? Math.sin(state.t*30)*.02 : 0;
+  camera.position.set(player.x - fwdX*cb, 2.35+shimmer, player.z - fwdZ*cb);
+  camera.lookAt(player.x + fwdX*1.6, 0.8, player.z + fwdZ*1.6);
+  lamp.position.set(player.x, 2.9, player.z);
+
+  // gentle pellet twinkle so remaining ones read as living dots of their region colour
+  pelletMesh.material.opacity = 0.72 + 0.28*Math.sin(state.t*3);
+  if(state.phase!=='play') ghosts.forEach(g=>{ g.halo.material.opacity=0; });
+
+  const showInds = state.phase==='play'||state.phase==='dying';
+  indsWrap.style.visibility = showInds?'visible':'hidden';
+  mini.classList.toggle('hidden', !showInds);
+  compassEl.classList.toggle('hidden', !showInds);
+  const radarOn = showInds && state.t<state.pelletReveal;
+  radarTimer.classList.toggle('hidden', !radarOn);
+  if(radarOn) radarTimer.textContent='◉ RADAR '+Math.ceil(state.pelletReveal-state.t)+'s';
+  const outDanger = showInds && whale.active;
+  outWarn.classList.toggle('hidden', !outDanger);
+  if(outDanger){ outWarn.style.color='#ff4d5e'; outWarn.textContent='⚠ VOID SHARK — RUN INSIDE!'; }
+  if(showInds){ updateIndicators(); drawMinimap(); updateCompass(); }
+  renderer.render(scene,camera);
+}
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+ghosts.forEach(g=>ghostReset(g,1e9));   // park ghosts at spawn for the menu backdrop
+placePlayer();
+pacman.position.set(player.x,0.62,player.z); pacman.rotation.y=player.yaw;
+hud();
+setSpeed(speedKey);                     // sets selector highlight + start leaderboard
+showOverlay('startov');
+frame();
+})();
+</script>
+<div id="vtag">v15</div>
+</body>
+</html>
