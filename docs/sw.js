@@ -1,6 +1,6 @@
 // Service worker: keeps a copy of the arcade on the device so it opens offline.
 // Bump VERSION whenever any page changes, so devices fetch the new files.
-const VERSION = "arcade-v7";
+const VERSION = "arcade-v8";
 const CORE = [
   "./", "index.html", "manifest.json", "pwa.js", "limit.js",
   "InfluenceFloodGlobe.html", "InfluenceFloodRace.html", "MazeRunner.html",

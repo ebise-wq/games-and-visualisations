@@ -1313,7 +1313,7 @@ function setSpeed(k){
 document.querySelectorAll('#speedsel button').forEach(b=>
   b.onclick=()=>{ audioInit(); setSpeed(b.dataset.sp); });
 
-// Daily limit shared across the arcade (limit.js). A new run counts; the next level doesn't.
+// Game limit shared across the arcade (limit.js). A new run counts; the next level doesn't.
 const arcadeStart=()=>(window.Arcade?window.Arcade.tryStart():true);
 $('startbtn').onclick=()=>{ audioInit(); if(!arcadeStart()) return; newGame(); showOverlay(null); };
 $('rulesbtn').onclick=()=>{ $('startov').classList.add('hidden'); $('rulesov').classList.remove('hidden'); };

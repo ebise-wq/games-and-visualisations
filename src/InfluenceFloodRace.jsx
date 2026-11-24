@@ -1049,8 +1049,8 @@ function QuietHoursScreen() {
   );
 }
 
-// The games-per-day limit lives in docs/limit.js and is shared across the whole arcade.
-// Returns false (and shows the "done" card) once today's limit is used up.
+// The game limit (resets every 2 hours) lives in docs/limit.js and is shared across the whole arcade.
+// Returns false (and shows the "done" card) once the limit is used up.
 const arcadeStart = () => (window.Arcade ? window.Arcade.tryStart() : true);
 
 export default function InfluenceFloodRace() {

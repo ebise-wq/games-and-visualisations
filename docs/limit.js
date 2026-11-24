@@ -1,27 +1,25 @@
-// Arcade-wide daily game limit, shared by every game on this site.
+// Arcade-wide game limit, shared by the limited games on this site.
 //
-// You pick a number once a day (or "No limit"). It locks until the next day.
+// You pick a number (or "No limit"). It locks for WINDOW_HOURS, then resets
+// and you pick again.
 // A game counts the moment it starts, so leaving halfway still uses it up.
 // Games call `Arcade.tryStart()` before starting; it returns false (and shows
-// a "done for today" card) once the limit is reached.
-//
-// The day rolls over at 04:00 local time, so a late game counts for the
-// evening it belongs to.
+// a "done" card) once the limit is reached.
 (function () {
-  const KEY = "arcade-limit-v1";
-  const ROLLOVER_HOUR = 4;
+  const KEY = "arcade-limit-v2";
+  const WINDOW_HOURS = 2;
+  const WINDOW_MS = WINDOW_HOURS * 3600e3;
   const MAX = 5;
   const LABELS = { 1: "just 1 game bro 🥺" };
 
-  const today = () => {
-    const d = new Date(Date.now() - ROLLOVER_HOUR * 3600e3);
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  };
+  const fresh = () => ({ start: null, chosen: false, goal: null, played: 0 });
+  const resetsAt = (s) => new Date(s.start + WINDOW_MS);
+  const clock = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   let memory = null; // fallback if localStorage is blocked
   function read() {
     let s = memory;
     try { s = JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { /* use memory */ }
-    if (!s || s.day !== today()) return { day: today(), chosen: false, goal: null, played: 0 };
+    if (!s || !s.start || Date.now() - s.start >= WINDOW_MS) return fresh();
     return s;
   }
   function write(s) {
@@ -69,18 +67,18 @@
   function showPicker() {
     const opts = Array.from({ length: MAX }, (_, i) => i + 1)
       .map((n) => `<button class="arc-btn" data-n="${n}">${LABELS[n] || n + " games"}</button>`).join("");
-    const ov = overlay(`<h2>How many games today?</h2><p>Across all games. Locks until tomorrow.</p>
+    const ov = overlay(`<h2>How many games?</h2><p>Across all games. Locks for ${WINDOW_HOURS} hours.</p>
       <div class="arc-list">${opts}<button class="arc-btn arc-none" data-n="none">No limit</button></div>`);
     ov.querySelectorAll("[data-n]").forEach((b) => b.onclick = () => {
       const n = b.dataset.n;
-      write({ day: today(), chosen: true, goal: n === "none" ? null : Number(n), played: read().played });
+      write({ start: Date.now(), chosen: true, goal: n === "none" ? null : Number(n), played: 0 });
       close();
     });
   }
   function showDone() {
     const s = read();
     overlay(`<div class="arc-emoji">🌤️</div><h2>${s.goal === 1 ? "Just 1 — done" : s.goal + " games — done"}</h2>
-      <p>You said ${s.goal}, and you stuck to it. Back tomorrow.</p>
+      <p>You said ${s.goal}, and you stuck to it. Back at ${clock(resetsAt(s))}.</p>
       <a class="arc-btn arc-main" href="./">Back to the arcade</a>`, { closable: true });
   }
 
@@ -91,9 +89,10 @@
     const s = read();
     document.body.classList.toggle("arcade-done", s.chosen && left(s) === 0);
     if (!s.chosen) { el.textContent = ""; return; }
-    if (s.goal == null) { el.textContent = "No limit today"; return; }
+    const until = ` · until ${clock(resetsAt(s))}`;
+    if (s.goal == null) { el.textContent = "No limit" + until; return; }
     const l = left(s);
-    el.textContent = l === 0 ? "Done for today" : `${l} of ${s.goal} game${s.goal === 1 ? "" : "s"} left today`;
+    el.textContent = l === 0 ? `Done · back at ${clock(resetsAt(s))}` : `${l} of ${s.goal} game${s.goal === 1 ? "" : "s"} left` + until;
   }
 
   /* ---------- public API ---------- */
@@ -116,6 +115,7 @@
   document.readyState === "loading" ? addEventListener("DOMContentLoaded", init) : init();
   // Another tab may have played a game; keep the status in sync.
   addEventListener("storage", (e) => { if (e.key === KEY) renderStatus(); });
-  // The day can roll over while a page stays open.
+  // The window can run out while a page stays open.
   addEventListener("visibilitychange", () => { if (!document.hidden) init(); });
+  setInterval(() => { if (!read().chosen && !document.getElementById("arc-ov")) init(); else renderStatus(); }, 30000);
 })();

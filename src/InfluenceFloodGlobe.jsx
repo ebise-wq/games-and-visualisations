@@ -871,8 +871,8 @@ function FlatMap({ state, selectable, selectColour, onCellClick }) {
 
 // Quick play always uses these, whatever was last chosen on the custom screen.
 const QUICK_CONFIG = { freq: 4, numPlayers: 3, humans: 1, spread: "far", gaps: "many", difficulty: "strategist" };
-// The games-per-day limit lives in docs/limit.js and is shared across the whole arcade.
-// Returns false (and shows the "done" card) once today's limit is used up.
+// The game limit (resets every 2 hours) lives in docs/limit.js and is shared across the whole arcade.
+// Returns false (and shows the "done" card) once the limit is used up.
 const arcadeStart = () => (window.Arcade ? window.Arcade.tryStart() : true);
 
 const QUIET_START = 23, QUIET_END = 8;

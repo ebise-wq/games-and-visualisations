@@ -3,7 +3,7 @@ import { build } from "esbuild";
 import { writeFileSync } from "node:fs";
 
 const BASE = "https://ebise-wq.github.io/games-and-visualisations/";
-// `limited`: counts toward the daily game limit (docs/limit.js).
+// `limited`: counts toward the game limit (docs/limit.js).
 const games = [
   { file: "InfluenceFloodGlobe", title: "Influence Flood: Globe", desc: "Flood the world", img: "globe-2.jpg", limited: true },
   { file: "InfluenceFloodRace", title: "Influence Flood: Race", desc: "Paint, then flood", img: "race-2.jpg", limited: true },

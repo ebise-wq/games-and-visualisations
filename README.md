@@ -28,9 +28,9 @@ The service worker keeps a copy of every page for offline play.
 A new game also needs adding to the `CORE` list in `docs/sw.js`, plus the same head tags as the other pages.
 When replacing a thumbnail, save it under a new file name (e.g. `race-3.jpg`), or browsers keep showing the old one.
 
-## Daily game limit
+## Game limit
 
-`docs/limit.js` holds one games-per-day limit for the whole arcade (1–5, or no limit),
-picked once a day and saved in the browser. A game counts when it starts. The day rolls
-over at 04:00. Each game calls `window.Arcade.tryStart()` before starting a new game;
+`docs/limit.js` holds one game limit for the limited games (1–5, or no limit),
+saved in the browser. A pick locks for 2 hours (`WINDOW_HOURS`), then resets.
+A game counts when it starts. Each game calls `window.Arcade.tryStart()` before starting a new game;
 a new game must do the same.
